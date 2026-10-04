@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f0f10" media="(prefers-color-scheme: dark)">
+  <title>Lingua OS — Personal Language Learning OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Optional: Inter. If offline, the system font stack is used. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Apply theme before first paint to avoid flashes.
+    (function(){try{var s=JSON.parse(localStorage.getItem('los:v1')||'{}');var t=(s.settings&&s.settings.theme)||'system';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#view">Skip to content</a>
+
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar-inner" id="sidebar-inner"></div>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+
+    <div class="main-wrap">
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="view" tabindex="-1"></main>
+    </div>
+
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Quick navigation"></nav>
+  </div>
+
+  <div class="toast-region" id="toasts" aria-live="polite" aria-atomic="false"></div>
+  <div id="modal-root"></div>
+
+  <noscript><p style="padding:2rem">Lingua OS needs JavaScript enabled.</p></noscript>
+
+  <!-- Core -->
+  <script src="js/core.js"></script>
+  <!-- Content packs (one file per language; add more languages by adding a pack) -->
+  <script src="js/content/shared.js"></script>
+  <script src="js/content/en.js"></script>
+  <script src="js/content/en-pro.js"></script>
+  <script src="js/content/es.js"></script>
+  <script src="js/content/es-pro.js"></script>
+  <!-- Data layer -->
+  <script src="js/store.js"></script>
+  <!-- Learning engine -->
+  <script src="js/engine/srs.js"></script>
+  <script src="js/engine/skills.js"></script>
+  <script src="js/engine/learning.js"></script>
+  <script src="js/engine/writing.js"></script>
+  <script src="js/engine/assessment.js"></script>
+  <script src="js/engine/planner.js"></script>
+  <script src="js/engine/progress.js"></script>
+  <script src="js/engine/speech.js"></script>
+  <!-- AI abstraction (local now, remote-ready) -->
+  <script src="js/ai.js"></script>
+  <!-- UI -->
+  <script src="js/ui/components.js"></script>
+  <script src="js/ui/runners.js"></script>
+  <script src="js/ui/views-main.js"></script>
+  <script src="js/ui/views-learn.js"></script>
+  <script src="js/ui/views-pro.js"></script>
+  <script src="js/ui/views-track.js"></script>
+  <script src="js/ui/views-setup.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
