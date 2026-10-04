@@ -141,13 +141,23 @@ Hai due possibilità:
 > Anche se qualcuno modificasse le richieste dell'app a mano, non potrebbe leggere i dati altrui.
 
 ### Passo 4 — Prendere URL e chiave pubblica
-1. In Supabase: **Project Settings** (ingranaggio in basso a sinistra) → **API Keys** (o **Data API** / **API**).
-2. Copia:
-   - **Project URL** — es. `https://abcdefghijklm.supabase.co` → sarà `SUPABASE_URL`
-   - la chiave **pubblica**: **`anon` `public`** (scheda *Legacy API keys*) oppure **`publishable`**
-     (inizia con `sb_publishable_`) → sarà `SUPABASE_ANON_KEY`
-3. **Non copiare mai** la chiave `service_role` né le chiavi `secret` (`sb_secret_…`): danno accesso
-   totale al database. Se per errore le inserisci, la build si ferma con un avviso.
+Nella dashboard attuale di Supabase **URL e chiave stanno in due pagine diverse**.
+
+**A. Project URL → `SUPABASE_URL`**
+- Il modo più semplice: premi il pulsante **Connect** in alto, al centro della pagina del progetto.
+  Nel riquadro (scheda *App Frameworks*) trovi `SUPABASE_URL=https://xxxx.supabase.co`.
+- In alternativa: **Project Settings** (ingranaggio in basso a sinistra) → **Data API** → *Project URL*.
+- Oppure ricavalo dalla barra degli indirizzi: se vedi
+  `supabase.com/dashboard/project/abcdefghijklm`, l'URL è `https://abcdefghijklm.supabase.co`.
+
+**B. Chiave pubblica → `SUPABASE_ANON_KEY`**
+- **Project Settings** → **API Keys**.
+- Copia la **Publishable key** (inizia con `sb_publishable_`), **oppure**, nella scheda
+  *Legacy API keys*, la chiave **`anon` `public`** (una lunga stringa che inizia con `eyJ`).
+  Funzionano entrambe.
+
+**Non copiare mai** la chiave `service_role` né le chiavi `secret` (`sb_secret_…`): danno accesso
+totale al database. Se per errore le inserisci, la build si ferma con un avviso.
 
 ### Passo 5 — Configurare il login (Authentication)
 1. **Authentication → Sign In / Providers → Email**: deve essere **attivo**.
