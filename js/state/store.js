@@ -1,10 +1,11 @@
-/* DATA LAYER — single source of truth persisted to localStorage.
- * Shape is versioned so imports from older backups can be migrated. */
+/* STATE — the in-memory application state of the signed-in user.
+ * It is NOT the database: Supabase is. Every change calls save(), which writes the per-user
+ * cache and schedules a cloud sync (js/sync/sync.js). Shape is versioned for imports. */
 (function () {
   'use strict';
   const LOS = window.LOS;
   const U = LOS.util;
-  const KEY = 'los:v1';
+  const LEGACY_KEY = 'los:v1'; // used by the local-only version (before accounts)
   const VERSION = 1;
 
   function defaultState() {
@@ -12,6 +13,7 @@
       version: VERSION,
       createdAt: new Date().toISOString(),
       settings: {
+        notifications: false,
         theme: 'system', // light | dark | system
         activeLang: null,
         onboarded: false,
@@ -22,7 +24,7 @@
         langWeights: {}, // per language share of the daily budget
         restDay: null, // optional automatic weekly rest day (0–6)
       },
-      profile: { name: '', field: '', specialty: '', interests: [], difficulty: 'balanced', studyTime: 'evening' },
+      profile: { name: '', native: 'it', field: '', specialty: '', interests: [], difficulty: 'balanced', studyTime: 'evening' },
       time: { min: 15, target: 40, max: 90 },
       rules: { heavy: [10, 20], normal: [20, 40], free: [45, 90], longShiftHours: 10 },
       schedule: {
@@ -71,13 +73,13 @@
       xp: 0,
       achievements: [],
       recentSkips: [], // [{date, skill}]
+      reviewLog: [], // vocabulary reviews not yet stored in the cloud (vocabulary_reviews table)
       weekFocus: null, // { skill, until }
       seen: { texts: {}, prompts: {}, think: {}, scenarios: {} },
     };
   }
 
-  let state = null;
-  let saveTimer = null;
+  let state = defaultState();
 
   function merge(target, src) {
     // fill missing keys of target from src (deep for plain objects)
@@ -97,32 +99,13 @@
   }
 
   const store = (LOS.store = {
-    KEY,
-    load() {
-      try {
-        const raw = localStorage.getItem(KEY);
-        state = migrate(raw ? JSON.parse(raw) : null);
-      } catch (e) {
-        console.warn('Could not read saved data; starting fresh.', e);
-        state = defaultState();
-      }
-      return state;
-    },
+    LEGACY_KEY,
     get state() { return state; },
-    save(immediate) {
-      clearTimeout(saveTimer);
-      const write = () => {
-        try {
-          localStorage.setItem(KEY, JSON.stringify(state));
-          LOS.bus.emit('saved');
-        } catch (e) {
-          console.error(e);
-          LOS.bus.emit('save-error', e);
-        }
-      };
-      if (immediate) write(); else saveTimer = setTimeout(write, 250);
-    },
-    /** Active language code (falls back to the first enabled language). */
+    /** Replace the whole state (after a cloud download, a cache load or an import). */
+    replace(next) { state = migrate(next); return state; },
+    /** Persist: write the per-user cache and schedule a cloud sync. */
+    save(immediate) { if (LOS.sync) LOS.sync.changed(immediate); LOS.bus.emit('saved'); },
+    /** Active language code (falls back to the first language with a profile). */
     active() {
       const s = state.settings;
       if (s.activeLang && state.langs[s.activeLang]) return s.activeLang;
@@ -145,23 +128,24 @@
     exportJSON() {
       return JSON.stringify({ app: 'lingua-os', exportedAt: new Date().toISOString(), state }, null, 2);
     },
+    /** Import a backup: it replaces the account's data and is then synced to the cloud. */
     importJSON(text) {
       const data = JSON.parse(text);
       const incoming = data && data.state ? data.state : data;
-      if (!incoming || typeof incoming !== 'object' || !incoming.langs || !incoming.settings) throw new Error('This file is not a Lingua OS backup.');
+      if (!incoming || typeof incoming !== 'object' || !incoming.langs || !incoming.settings) throw new Error('Questo file non è un backup di Lingua OS.');
       state = migrate(incoming);
       this.save(true);
       LOS.bus.emit('imported');
       return state;
     },
-    reset() {
-      localStorage.removeItem(KEY);
-      state = defaultState();
-      this.save(true);
+    /** Data saved by the previous, local-only version of the app (before accounts existed). */
+    legacyData() {
+      try { const raw = localStorage.getItem(LEGACY_KEY); const d = raw ? JSON.parse(raw) : null; return d && d.settings && d.settings.onboarded ? d : null; } catch (e) { return null; }
     },
+    dropLegacy() { try { localStorage.removeItem(LEGACY_KEY); } catch (e) { /* ignore */ } },
+    /** Wipe all learning data of the current account (synced as deletions). */
+    reset() { state = defaultState(); this.save(true); },
     defaultLang,
+    defaultState,
   });
-
-  window.addEventListener('beforeunload', () => { if (state) try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && state) store.save(true); });
 })();

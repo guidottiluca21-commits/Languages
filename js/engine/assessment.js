@@ -207,7 +207,7 @@
     const startingPoint = `Grammar from ${U.LEVELS[Math.min(5, gBand)]} (${frontier ? frontier.topic.title : '—'}), vocabulary around ${U.LEVELS[Math.min(5, vBand + 1)]}, with extra ${U.SKILL_LABEL[weakest].toLowerCase()} practice.`;
 
     const result = {
-      date: today, skills: out, overall: { theta: overall.theta, label: overall.label, sub: overall.sub }, sub,
+      id: U.uuid(), date: today, skills: out, overall: { theta: overall.theta, label: overall.label, sub: overall.sub }, sub,
       strengths, weaknesses, priorities, missedTopics, startingPoint,
       measured: { listening: measured('listening'), writing: !!draft.writing, speaking: !!draft.speaking },
       items: draft.log.length, minutes: Math.max(1, Math.round((Date.now() - draft.started) / 60000)),

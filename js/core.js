@@ -12,6 +12,13 @@
     SKILL_LABEL: { grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', review: 'Review' },
 
     uid(p = 'id') { return p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); },
+    uuid() {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      const b = (window.crypto && crypto.getRandomValues) ? crypto.getRandomValues(new Uint8Array(16)) : Uint8Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+      b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+      const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+      return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+    },
 
     /* ---------- dates (local, YYYY-MM-DD) ---------- */
     dateStr(d = new Date()) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); },

@@ -23,7 +23,7 @@
     const st = S();
     const first = !st.settings.onboarded;
     onb = {
-      step: first ? 0 : 2, first, code: code || null, picked: code ? [code] : [], est: null,
+      step: first ? 0 : 2, first, code: code || null, picked: code ? [code] : [], est: {}, native: st.profile.native || 'it',
       goals: [], field: st.profile.field || '', specialty: st.profile.specialty || '', name: st.profile.name || '', interests: (st.profile.interests || []).join(', '),
       time: Object.assign({}, st.time), target: 'C2', targetDate: '', tested: false,
     };
@@ -48,16 +48,17 @@
           <p class="lead mt-16">Lingua OS is a personal system for reaching C2 in English and Spanish: it measures each skill, builds a curriculum from your real gaps, plans around your shifts, and decides every day what is most worth practising.</p>
           <div class="stack mt-24 small muted" style="--gap:10px"><div class="cluster">${icon('target', 16)} Adaptive placement test per language</div><div class="cluster">${icon('calendar', 16)} Study load shaped by your work schedule</div><div class="cluster">${icon('review', 16)} Spaced repetition for grammar, vocabulary and your own errors</div><div class="cluster">${icon('medical', 16)} Medical & professional communication</div></div>
           <div class="cluster mt-32"><button class="btn primary lg" data-act="next" autofocus>Begin ${icon('arrowRight', 16)}</button><button class="btn ghost" data-act="import">${icon('upload', 15)} Restore a backup</button></div>
-          <p class="faint xs mt-16">Everything is stored locally in this browser. Export a backup any time from Settings.</p>`;
+          <p class="faint xs mt-16">Your progress is saved in your account and synced across your devices.</p>`;
       } else if (key === 'language') {
-        body = `<div class="eyebrow">Step 1</div><h2 class="mt-8">Which language do you want to set up?</h2><p class="muted mt-8">Each language has its own level, curriculum and progress. You can add the other one later.</p>
-          <div class="choice-grid mt-24">${LOS.lang.codes().map((c) => { const L = S().langs[c]; const done = L && L.onboarded; return `<button class="choice ${onb.picked.includes(c) ? 'on' : ''}" data-act="pick" data-v="${c}" ${done ? 'disabled style="opacity:.55"' : ''}><span class="c-t">${ui.langDot(c)} ${esc(LOS.lang.get(c).name)} <span class="faint small">${esc(LOS.lang.get(c).short)}</span></span><span class="c-d">${done ? 'Already set up' : esc(LOS.lang.get(c).native)}</span></button>`; }).join('')}</div>
-          <div class="field mt-24"><label for="o-name">Your name (optional)</label><input class="input" id="o-name" value="${esc(onb.name)}" placeholder="For a friendlier dashboard"></div>
+        body = `<div class="eyebrow">Step 1</div><h2 class="mt-8">Which languages do you want to study?</h2><p class="muted mt-8">Choose one or more. Each language keeps its own level, curriculum, vocabulary, errors and statistics. The first one you pick gets the placement test now; the others can take it later.</p>
+          <div class="choice-grid mt-24">${LOS.lang.codes().map((c) => { const L = S().langs[c]; const done = L && L.onboarded; return `<button class="choice ${onb.picked.includes(c) ? 'on' : ''}" data-act="pick" data-v="${c}" aria-pressed="${onb.picked.includes(c)}" ${done ? 'disabled style="opacity:.55"' : ''}><span class="c-t">${ui.langDot(c)} ${esc(LOS.lang.get(c).name)} <span class="faint small">${esc(LOS.lang.get(c).short)}</span>${onb.picked[0] === c && onb.picked.length > 1 ? ' <span class="pill accent">first</span>' : ''}</span><span class="c-d">${done ? 'Already set up' : esc(LOS.lang.get(c).native)}</span></button>`; }).join('')}</div>
+          <div class="grid grid-2 mt-24"><div class="field"><label for="o-name">Display name</label><input class="input" id="o-name" value="${esc(onb.name)}" placeholder="e.g. Luca" maxlength="80"></div>
+          <div class="field"><label for="o-native">Native language</label><select class="select" id="o-native">${[['it', 'Italiano'], ['en', 'English'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'], ['pt', 'Português'], ['other', 'Other']].map(([v, l]) => `<option value="${v}" ${onb.native === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
           <div class="between mt-32">${back}<button class="btn primary" data-act="next" ${onb.picked.length ? '' : 'disabled'}>Continue ${icon('arrowRight', 16)}</button></div>`;
       } else if (key === 'level') {
-        body = `<div class="eyebrow">${ui.langDot(onb.code)} ${esc(pname)}</div><h2 class="mt-8">What's your current level, roughly?</h2><p class="muted mt-8">Only a starting point — the test adapts from here and measures each skill separately.</p>
-          <div class="choice-grid mt-24">${U.LEVELS.map((l, i) => `<button class="choice ${onb.est === i ? 'on' : ''}" data-act="est" data-v="${i}"><span class="c-t">${l}</span><span class="c-d">${LEVEL_DESC[l]}</span></button>`).join('')}<button class="choice ${onb.est === -1 ? 'on' : ''}" data-act="est" data-v="-1"><span class="c-t">Not sure</span><span class="c-d">Start in the middle.</span></button></div>
-          <div class="between mt-32">${back}<button class="btn primary" data-act="next" ${onb.est == null ? 'disabled' : ''}>Continue ${icon('arrowRight', 16)}</button></div>`;
+        body = `<h2>What's your current level, roughly?</h2><p class="muted mt-8">Only a starting point — the test adapts from here and measures each skill separately.</p>
+          ${onb.picked.map((c) => `<div class="section"><div class="section-head"><h3>${ui.langDot(c)} ${esc(ui.langName(c))}</h3></div><div class="choice-grid">${U.LEVELS.map((l, i) => `<button class="choice ${onb.est[c] === i ? 'on' : ''}" data-act="est" data-l="${c}" data-v="${i}" aria-pressed="${onb.est[c] === i}"><span class="c-t">${l}</span><span class="c-d">${LEVEL_DESC[l]}</span></button>`).join('')}<button class="choice ${onb.est[c] === -1 ? 'on' : ''}" data-act="est" data-l="${c}" data-v="-1"><span class="c-t">Not sure</span><span class="c-d">Start in the middle.</span></button></div></div>`).join('')}
+          <div class="between mt-32">${back}<button class="btn primary" data-act="next" ${onb.picked.every((c) => onb.est[c] != null) ? '' : 'disabled'}>Continue ${icon('arrowRight', 16)}</button></div>`;
       } else if (key === 'test') {
         const L = LOS.store.lang(onb.code);
         const last = L.assessments[L.assessments.length - 1];
@@ -107,6 +108,7 @@
       const keep = () => {
         const q = (id) => root.querySelector(id);
         if (q('#o-name')) onb.name = q('#o-name').value.trim();
+        if (q('#o-native')) onb.native = q('#o-native').value;
         if (q('#o-field')) { onb.field = q('#o-field').value.trim(); onb.specialty = q('#o-spec').value.trim(); onb.interests = q('#o-int').value; onb.target = q('#o-tl').value; onb.targetDate = q('#o-td').value; }
       };
       root.querySelectorAll('[data-t]').forEach((el) => el.addEventListener('input', () => {
@@ -120,31 +122,37 @@
       ui.delegate(root, {
         next() {
           keep();
-          if (STEPS[onb.step] === 'language') { onb.code = onb.picked[0]; LOS.store.ensureLang(onb.code); }
-          if (STEPS[onb.step] === 'level') LOS.store.lang(onb.code).estimate = onb.est;
+          if (STEPS[onb.step] === 'language') { onb.code = onb.picked[0]; onb.picked.forEach((c) => LOS.store.ensureLang(c)); }
+          if (STEPS[onb.step] === 'level') onb.picked.forEach((c) => { LOS.store.lang(c).estimate = onb.est[c]; });
           if (STEPS[onb.step] === 'time') S().time = Object.assign({}, onb.time);
           if (STEPS[onb.step] === 'goals' && !onb.first && S().settings.onboarded) { onb.step = 6; }
           onb.step = Math.min(STEPS.length - 1, onb.step + 1);
           LOS.store.save(); LOS.app.refresh();
         },
         back() { keep(); onb.step = Math.max(0, onb.step - 1); if (!onb.first && onb.step === 6) onb.step = 4; LOS.app.refresh(); },
-        pick(el) { onb.picked = [el.dataset.v]; LOS.app.refresh(); },
-        est(el) { onb.est = +el.dataset.v; LOS.app.refresh(); },
+        pick(el) { keep(); const c = el.dataset.v; onb.picked = onb.picked.includes(c) ? onb.picked.filter((x) => x !== c) : onb.picked.concat([c]); LOS.app.refresh(); },
+        est(el) { onb.est[el.dataset.l] = +el.dataset.v; LOS.app.refresh(); },
         goal(el) { keep(); const g = el.dataset.v; onb.goals = onb.goals.includes(g) ? onb.goals.filter((x) => x !== g) : onb.goals.concat([g]); LOS.app.refresh(); },
-        skipTest() { LOS.assessment.fromEstimate(onb.code, onb.est == null || onb.est < 0 ? 2 : onb.est); onb.step = 4; LOS.app.refresh(); },
+        skipTest() { const e = onb.est[onb.code]; LOS.assessment.fromEstimate(onb.code, e == null || e < 0 ? 2 : e); onb.step = 4; LOS.app.refresh(); },
         pattern() { LOS.views._patternEditor(() => LOS.app.refresh()); },
         import() { importBackup(); },
         generate() {
           keep();
           const st = S();
-          const L = LOS.store.lang(onb.code);
-          if (!U.SKILLS.some((s) => LOS.skills.theta(L, s) != null)) LOS.assessment.fromEstimate(onb.code, onb.est == null || onb.est < 0 ? 2 : onb.est);
-          L.goals = onb.goals.slice();
-          L.targetLevel = onb.target;
-          L.targetDate = onb.targetDate;
-          L.onboarded = true;
-          L.enabled = true;
+          // one language profile per chosen language (the others start from the self-estimate)
+          (onb.picked.length ? onb.picked : [onb.code]).forEach((c) => {
+            const L = LOS.store.lang(c);
+            const e = onb.est[c] != null ? onb.est[c] : L.estimate;
+            if (!U.SKILLS.some((s) => LOS.skills.theta(L, s) != null)) LOS.assessment.fromEstimate(c, e == null || e < 0 ? 2 : e);
+            L.goals = onb.goals.slice();
+            L.targetLevel = onb.target;
+            L.targetDate = onb.targetDate;
+            L.onboarded = true;
+            L.enabled = true;
+            if (st.settings.langWeights[c] == null) st.settings.langWeights[c] = 50;
+          });
           st.profile.name = onb.name;
+          st.profile.native = onb.native;
           st.profile.field = onb.field;
           st.profile.specialty = onb.specialty;
           st.profile.interests = onb.interests.split(',').map((x) => x.trim()).filter(Boolean);
@@ -172,7 +180,7 @@
       const r = new FileReader();
       r.onload = async () => {
         try {
-          if (S().settings.onboarded && !(await ui.confirm('Replace current data?', 'Importing replaces all progress stored in this browser. Consider exporting first.', 'Import', true))) return;
+          if (S().settings.onboarded && !(await ui.confirm('Sostituire i dati attuali?', 'Il backup sostituirà tutti i progressi del tuo account, su tutti i dispositivi. Valuta di esportare prima una copia.', 'Importa', true))) return;
           LOS.store.importJSON(String(r.result));
           ui.toast('Backup restored');
           location.hash = '#/dashboard';
@@ -250,7 +258,7 @@
       const aw = root.querySelector('#aw');
       if (aw) aw.addEventListener('input', () => { root.querySelector('#awc').textContent = U.words(aw.value).length + ' words'; });
       ui.delegate(root, {
-        begin() { const L = LOS.store.lang(code); lastResult = null; audioPlays = {}; draft = LOS.assessment.start(code, L.estimate != null && L.estimate >= 0 ? L.estimate : (onb && onb.est >= 0 ? onb.est : null)); LOS.app.refresh(); },
+        begin() { const L = LOS.store.lang(code); lastResult = null; audioPlays = {}; draft = LOS.assessment.start(code, L.estimate != null && L.estimate >= 0 ? L.estimate : (onb && onb.est && onb.est[code] >= 0 ? onb.est[code] : null)); LOS.app.refresh(); },
         ans(el) { LOS.assessment.answer(draft, +el.dataset.v); LOS.app.refresh(); },
         dontknow() { LOS.assessment.answer(draft, -1); LOS.app.refresh(); },
         playA(el) { const t = LOS.lang.get(code).index.texts[el.dataset.id]; audioPlays[t.id] = (audioPlays[t.id] || 0) + 1; LOS.speech.speak(t.text, code, { rate: U.levelIndex(t.l) <= 1 ? 0.85 : 1 }); const m = root.querySelector('.player .meta'); if (m) m.textContent = `${audioPlays[t.id]}/3 plays used`; if (audioPlays[t.id] >= 3) el.disabled = true; },
@@ -311,8 +319,16 @@
       }).join('');
       return `<div class="view narrow">
         <div class="page-head"><div><h1>Settings</h1><p class="sub">Everything is stored locally in this browser.</p></div></div>
+        <div class="section"><div class="section-head"><h2>Account</h2>${(() => { const i = LOS.sync.info; return `<span class="faint small">${esc(LOS.sync.label(i))}${i.lastSync ? ' · ' + new Date(i.lastSync).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : ''}</span>`; })()}</div>
+          <div class="list">
+            <div class="row"><div class="grow"><div class="title">${esc((LOS.auth.user && LOS.auth.user.email) || '')}</div><div class="meta">I tuoi dati sono salvati nel tuo database personale e sincronizzati tra i dispositivi.</div></div><button class="btn sm" data-act="syncNow">${icon('swap', 14)} Sincronizza ora</button></div>
+            <div class="row"><div class="grow"><div class="title">Cambia password</div><div class="meta">Almeno 10 caratteri, con lettere e numeri.</div></div><button class="btn sm" data-act="changePw">Cambia</button></div>
+            <div class="row"><div class="grow"><div class="title">Esci</div><div class="meta">Su questo dispositivo verrà rimossa la copia locale dei dati (restano nel cloud).</div></div><button class="btn sm" data-act="logout">Esci</button></div>
+            <div class="row"><div class="grow"><div class="title bad">Elimina account</div><div class="meta">Elimina definitivamente account e tutti i dati di studio. Non si può annullare.</div></div><button class="btn sm danger" data-act="deleteAccount">Elimina…</button></div>
+          </div></div>
         <div class="section"><div class="section-head"><h2>Profile</h2></div>
           <div class="form-grid"><div class="field"><label for="s-name">Name</label><input class="input" id="s-name" data-p="name" value="${esc(st.profile.name)}"></div>
+          <div class="field"><label for="s-native">Native language</label><select class="select" id="s-native" data-p="native">${[['it', 'Italiano'], ['en', 'English'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'], ['pt', 'Português'], ['other', 'Other']].map(([v, l]) => `<option value="${v}" ${(st.profile.native || 'it') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
           <div class="field"><label for="s-field">Professional field</label><input class="input" id="s-field" data-p="field" value="${esc(st.profile.field)}"></div>
           <div class="field"><label for="s-spec">Specialty</label><input class="input" id="s-spec" data-p="specialty" value="${esc(st.profile.specialty)}"></div></div>
           <div class="field mt-16"><label for="s-int">Interests</label><input class="input" id="s-int" data-p="interests" value="${esc((st.profile.interests || []).join(', '))}"></div>
@@ -341,8 +357,8 @@
   (e.g. scores, sentencesOut[{original, corrected, natural, issues}], estTheta, notes).
 Any error or timeout falls back to the local implementation.</pre></details>
           <button class="btn sm mt-12" data-act="testAI">Test connection</button></div>
-        <div class="section"><div class="section-head"><h2>Data</h2><span class="faint small">${Math.round((localStorage.getItem(LOS.store.KEY) || '').length / 1024)} KB used</span></div>
-          <div class="cluster"><button class="btn" data-act="export">${icon('download', 15)} Export JSON</button><button class="btn" data-act="import">${icon('upload', 15)} Import JSON</button><a class="btn ghost" href="#/welcome/new">Add a language</a><button class="btn danger right" data-act="resetAll">${icon('trash', 15)} Reset everything</button></div></div>
+        <div class="section"><div class="section-head"><h2>Data</h2><span class="faint small">stored in your Supabase database · cached on this device</span></div>
+          <div class="cluster"><button class="btn" data-act="export">${icon('download', 15)} Export JSON</button><button class="btn" data-act="import">${icon('upload', 15)} Import JSON</button><a class="btn ghost" href="#/welcome/new">Add a language</a><button class="btn danger right" data-act="resetAll">${icon('trash', 15)} Delete all study data</button></div></div>
         <div class="section"><div class="section-head"><h2>Capabilities in this browser</h2></div>
           <div class="cluster">${[['Speech synthesis', LOS.speech.ttsSupported], ['Speech recognition', LOS.speech.srSupported], ['Audio recording', LOS.speech.recSupported], ['Local storage', (() => { try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return true; } catch (e) { return false; } })()]].map(([l, ok]) => `<span class="pill ${ok ? 'ok' : ''}">${icon(ok ? 'check' : 'x', 12)} ${l}</span>`).join('')}</div></div>
       </div>`;
@@ -386,11 +402,50 @@ Any error or timeout falls back to the local implementation.</pre></details>
         },
         resetLoad() { st.meta.loadFactor = 1; save(); LOS.app.refresh(); },
         pattern() { LOS.views._patternEditor(); },
+        syncNow() { LOS.app.syncNow(); ui.toast('Sincronizzazione avviata', 'swap'); },
+        logout() { LOS.app.logout(); },
+        changePw() {
+          ui.modal({
+            title: 'Cambia password',
+            body: `<div class="stack" style="--gap:12px"><div class="field"><label for="np1">Nuova password</label><input class="input" type="password" id="np1" autocomplete="new-password"></div><div class="field"><label for="np2">Conferma password</label><input class="input" type="password" id="np2" autocomplete="new-password"></div><div class="auth-msg small" role="alert"></div></div>`,
+            foot: '<button class="btn" data-close>Annulla</button><button class="btn primary" data-ok>Salva</button>',
+            onMount(m, close) {
+              m.querySelector('[data-ok]').addEventListener('click', async (e) => {
+                const a = m.querySelector('#np1').value, b = m.querySelector('#np2').value;
+                const msg = m.querySelector('.auth-msg');
+                const issues = LOS.auth.passwordIssues(a, LOS.auth.user && LOS.auth.user.email);
+                if (issues.length) { msg.innerHTML = ui.notice('Password troppo debole. Serve: ' + issues.join(', ') + '.', 'errors', 'warn'); return; }
+                if (a !== b) { msg.innerHTML = ui.notice('Le due password non coincidono.', 'errors', 'warn'); return; }
+                e.target.disabled = true;
+                try { await LOS.auth.updatePassword(a); close(); ui.toast('Password aggiornata'); }
+                catch (err) { e.target.disabled = false; msg.innerHTML = ui.notice(U.esc(LOS.errors.friendly(err)), 'errors', 'warn'); }
+              });
+            },
+          });
+        },
+        deleteAccount() {
+          ui.modal({
+            title: 'Elimina account',
+            body: `<p class="muted">Verranno eliminati <strong>definitivamente</strong> il tuo account (${U.esc((LOS.auth.user && LOS.auth.user.email) || '')}) e tutti i dati di studio di tutte le lingue, su tutti i dispositivi. L'operazione non si può annullare.</p>
+              <p class="muted small mt-8">Se vuoi conservare una copia, scarica prima il backup (Settings → Data → Export JSON).</p>
+              <div class="field mt-16"><label for="del-confirm">Scrivi <strong>ELIMINA</strong> per confermare</label><input class="input" id="del-confirm" autocomplete="off"></div><div class="auth-msg small mt-8" role="alert"></div>`,
+            foot: '<button class="btn" data-close>Annulla</button><button class="btn danger" data-ok disabled>Elimina definitivamente</button>',
+            onMount(m, close) {
+              const inp = m.querySelector('#del-confirm'), ok = m.querySelector('[data-ok]');
+              inp.addEventListener('input', () => { ok.disabled = inp.value.trim() !== 'ELIMINA'; });
+              ok.addEventListener('click', async () => {
+                ok.disabled = true; ok.textContent = 'Eliminazione…';
+                try { await LOS.app.deleteAccount(); close(); }
+                catch (err) { ok.disabled = false; ok.textContent = 'Elimina definitivamente'; m.querySelector('.auth-msg').innerHTML = ui.notice(U.esc(LOS.errors.friendly(err, 'Non è stato possibile eliminare l\'account. Controlla la connessione e riprova.')), 'errors', 'warn'); }
+              });
+            },
+          });
+        },
         export() { ui.download(`lingua-os-backup-${U.today()}.json`, LOS.store.exportJSON()); ui.toast('Backup downloaded', 'download'); },
         import() { importBackup(); },
         async resetAll() {
-          if (!(await ui.confirm('Reset everything?', 'This deletes all data in this browser. Export a backup first if you might need it.', 'Delete everything', true))) return;
-          LOS.store.reset(); location.hash = '#/welcome'; LOS.app.refresh(true);
+          if (!(await ui.confirm('Eliminare tutti i dati di studio?', 'Verranno eliminati progressi, vocabolario, errori e cronologia di tutte le lingue, su tutti i dispositivi. L\'account resta attivo. Esporta prima un backup se potrebbe servirti.', 'Elimina i dati', true))) return;
+          LOS.store.reset(); await LOS.sync.flush(); location.hash = '#/welcome'; LOS.app.refresh(true);
         },
         async testAI() {
           if (!st.settings.ai.endpoint) { ui.toast('Enter an endpoint first', 'info'); return; }

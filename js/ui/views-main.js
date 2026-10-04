@@ -38,12 +38,13 @@
         ${langSwitch()}
         <nav aria-label="Sections">${NAV.map((g) => `<div class="nav-label">${g.group}</div>${g.items.map(([r, l, ic]) => `<a class="nav-item ${route === r ? 'active' : ''}" href="#/${r}" ${route === r ? 'aria-current="page"' : ''}>${icon(ic, 17)}<span>${l}</span>${r === 'today' && pending ? `<span class="badge">${pending}</span>` : ''}${r === 'grammar' || r === 'vocabulary' ? '' : ''}${r === 'review' && reviewDue ? '<span class="badge accent">1</span>' : ''}</a>`).join('')}`).join('')}</nav>
         <div class="sidebar-foot">
+          <button class="sync-pill" data-sync-pill hidden title="Stato della sincronizzazione"><i aria-hidden="true"></i><span class="t"></span></button>
           ${dueCount ? `<a class="nav-item" href="#/practice/review/all">${icon('review', 17)}<span>Reviews due</span><span class="badge">${dueCount}</span></a>` : ''}
           <a class="nav-item ${route === 'settings' ? 'active' : ''}" href="#/settings">${icon('settings', 17)}<span>Settings</span></a>
           <button class="nav-item" data-theme-toggle aria-label="Toggle dark mode">${icon(document.documentElement.getAttribute('data-theme') === 'dark' || (document.documentElement.getAttribute('data-theme') === 'system' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'sun' : 'moon', 17)}<span>Appearance</span></button>
         </div>`;
       const tb = document.getElementById('topbar');
-      tb.innerHTML = `<button class="btn ghost icon" data-drawer aria-label="Open menu">${icon('menu', 20)}</button><div class="t">${esc(ROUTE_TITLE[route] || 'Lingua OS')}</div>${langSwitch()}`;
+      tb.innerHTML = `<button class="btn ghost icon" data-drawer aria-label="Open menu">${icon('menu', 20)}</button><div class="t">${esc(ROUTE_TITLE[route] || 'Lingua OS')}</div><button class="sync-pill dot-only" data-sync-pill hidden aria-label="Stato della sincronizzazione"><i aria-hidden="true"></i><span class="t sr-only"></span></button>${langSwitch()}`;
       const bn = document.getElementById('bottom-nav');
       const items = [['dashboard', 'Home', 'dashboard'], ['today', 'Today', 'today'], ['practice', 'Review', 'review'], ['calendar', 'Calendar', 'calendar'], ['more', 'More', 'menu']];
       bn.innerHTML = items.map(([r, l, ic]) => `<button class="${route === r ? 'active' : ''}" data-bn="${r}" aria-label="${l}">${icon(ic, 21)}<span>${l}</span></button>`).join('');

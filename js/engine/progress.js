@@ -116,7 +116,7 @@
     const wk = LOS.skills.weakest(lang);
     const focus = data.focus || (wk && wk.skill);
     if (focus) lang.weekFocus = { skill: focus, until: U.addDays(to, 7) };
-    const entry = { date: to, weekStart: weekStartOf(), stats: { minutes: s.minutes, listening: s.listening, wordsStable: s.wordsStable, grammarMastered: s.grammarMastered, consistency: s.consistency, realism: s.realism }, answers: data.answers || {}, workload: data.workload, focus, loadFactor: st.meta.loadFactor };
+    const entry = { id: U.uuid(), date: to, weekStart: weekStartOf(), stats: { minutes: s.minutes, listening: s.listening, wordsStable: s.wordsStable, grammarMastered: s.grammarMastered, consistency: s.consistency, realism: s.realism }, answers: data.answers || {}, workload: data.workload, focus, loadFactor: st.meta.loadFactor };
     lang.reviews.push(entry);
     LOS.store.save(true);
     return { entry, next: LOS.planner.generateWeeklyPlan(U.addDays(weekStartOf(), 7)) };

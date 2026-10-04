@@ -197,7 +197,7 @@
       if (seen.has(key)) return;
       seen.add(key);
       const sent = analysis.sentencesOut.find((x) => x.original === i.sentence);
-      LOS.learn.recordError(code, { src, cat: i.cat, label: i.label, topic: i.topic, wrong: i.sentence, right: sent ? sent.corrected : i.suggestion || '', note: i.why });
+      LOS.learn.recordError(code, { src, cat: i.cat, label: i.label, topic: i.topic, wrong: i.sentence, right: sent ? sent.corrected : i.suggestion || '', natural: sent && sent.natural !== sent.corrected ? sent.natural : undefined, note: i.why });
     });
     return seen.size;
   }
@@ -685,7 +685,8 @@
       chk(el) { el.checked ? checks.add(el.dataset.k) : checks.delete(el.dataset.k); s.progress(checks.size / 6); s.body.querySelector('.section-head .faint').textContent = `${checks.size}/6`; },
       save() {
         const minutes = U.clamp(+form.minutes || 1, 1, 300);
-        const entry = { id: U.uid('lis'), date: U.today(), title: form.title || sug.desc, url: form.url, minutes, level: form.level, comprehension: form.comp, difficulty: form.diff, steps: [...checks], notes: form.notes, words: [] };
+        const cleanUrl = form.url.trim() && !/^https?:\/\//i.test(form.url.trim()) ? 'https://' + form.url.trim() : form.url.trim();
+        const entry = { id: U.uid('lis'), date: U.today(), title: form.title || sug.desc, url: cleanUrl, minutes, level: form.level, comprehension: form.comp, difficulty: form.diff, steps: [...checks], notes: form.notes, words: [] };
         form.words.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
           const [w, ...rest] = line.split(/\s+[—–-]\s+|:\s+/);
           const item = LOS.learn.addCustomVocab(s.code, { w: w.trim(), tr: rest.join(' ').trim(), def: rest.join(' ').trim(), l: form.level, src: 'listening' });

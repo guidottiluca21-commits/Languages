@@ -643,3 +643,25 @@ details > summary::-webkit-details-marker { display: none; }
 .mb { margin-bottom: 8px; }
 .freq-row.clickable:hover span:nth-child(2) { color: var(--accent-text); }
 @media (max-width: 600px) { .hide-sm { display: none !important; } }
+
+/* ---------- 11. Auth, sync status, loading ---------- */
+.auth .onb-body { padding-top: 7vh; }
+.auth-card { max-width: 440px !important; }
+.auth-foot { text-align: center; padding: 0 24px 28px; max-width: 520px; margin: 0 auto; }
+.auth-msg:not(:empty) { margin-top: 18px; }
+.pw-wrap { position: relative; }
+.pw-wrap .input { padding-right: 84px; }
+.pw-toggle { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); }
+.pw-meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: -4px 0 4px; }
+.pw-meter i { height: 4px; border-radius: 2px; background: var(--surface-3); }
+.pw-meter i.on.s1 { background: var(--error); } .pw-meter i.on.s2 { background: var(--warning); }
+.pw-meter i.on.s3, .pw-meter i.on.s4 { background: var(--success); }
+.spinner { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--surface-3); border-top-color: var(--text); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sync-pill { display: flex; align-items: center; gap: 8px; border: 0; background: none; color: var(--text-3); font-size: 12px; padding: 6px 10px; border-radius: var(--r-sm); cursor: pointer; text-align: left; }
+.sync-pill:hover { background: var(--surface-2); color: var(--text-2); }
+.sync-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); flex: none; }
+.sync-pill.ok i { background: var(--success); }
+.sync-pill.wait i { background: var(--warning); }
+.sync-pill.bad i { background: var(--error); }
+.sync-pill.dot-only { padding: 10px; }

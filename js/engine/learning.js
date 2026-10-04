@@ -264,6 +264,7 @@
     const st = lang.vocab[id] || (lang.vocab[id] = LOS.srs.create({ stage: 0, introduced: U.today() }));
     const prevStage = st.stage || 0;
     LOS.srs.grade(st, g, U.today(), opts.recovery ? { maxInterval: 7 } : {});
+    lang.reviewLog = (lang.reviewLog || []).concat([{ id: U.uuid(), k: id, r: g, at: Date.now() }]).slice(-2000);
     if (g >= 2) {
       if (prevStage < 4 && (prevStage < 2 || st.interval >= STAGE_MIN_INTERVAL[prevStage + 1] || g === 3)) st.stage = prevStage + 1;
     } else if (g === 0) st.stage = Math.max(1, prevStage - 1);
