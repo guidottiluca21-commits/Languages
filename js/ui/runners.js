@@ -320,7 +320,7 @@
             <div class="answer-row"><input class="input lg" id="ans" autocomplete="off" spellcheck="false" ${res ? `value="${esc(given)}" readonly` : 'autofocus'} aria-label="Missing words"><button class="btn primary lg" data-act="vsubmit" ${res ? 'disabled' : 'data-enter'}>Check</button></div>`;
         }
         if (res) {
-          html += `<div class="feedback ${res.correct ? 'ok' : 'bad'}">${icon(res.correct ? 'checkCircle' : 'errors', 20)}<div class="body"><strong>${esc(vv.w)}</strong> ${vv.ipa ? `<span class="faint">${esc(vv.ipa)}</span>` : ''} — ${esc(vv.tr)}<div class="why">${esc(vv.ex)}</div>${vv.col && vv.col.length ? `<div class="why">Collocations: ${esc(vv.col.slice(0, 4).join(' · '))}</div>` : ''}</div></div>`;
+          html += `<div class="feedback ${res.correct ? 'ok' : 'bad'}">${icon(res.correct ? 'checkCircle' : 'errors', 20)}<div class="body">${res.note ? `<div class="why strong">${esc(res.note)}</div>` : ''}<strong>${esc(vv.w)}</strong>${vv.pl ? ` <span class="muted">— ${esc(vv.pl)}</span>` : ''} ${vv.ipa ? `<span class="faint">${esc(vv.ipa)}</span>` : ''} — ${esc(vv.tr)}<div class="why">${esc(vv.ex)}</div>${vv.col && vv.col.length ? `<div class="why">Collocations: ${esc(vv.col.slice(0, 4).join(' · '))}</div>` : ''}</div></div>`;
           html += `<div class="faint xs mt-16">Stage: ${LOS.learn.STAGE_LABEL[st ? st.stage || 0 : 0]} — how well did you know it?</div>` + gradeButtons(st, res.suggested);
         }
         html += '</div>';
@@ -343,9 +343,9 @@
         if (res) return;
         given = s.body.querySelector('#ans').value;
         const target = card.target || card.v.w;
-        const chk = LOS.learn.checkAnswer({ t: 'gap', a: [target, card.v.w] }, given);
+        const chk = LOS.learn.checkAnswer({ t: 'gap', a: [target, card.v.w] }, given, s.code);
         const fast = Date.now() - t0 < 8000;
-        res = { correct: chk.correct, suggested: !chk.correct ? 0 : chk.close ? 1 : card.mode === 'automatic' ? (fast ? 3 : 1) : 2 };
+        res = { correct: chk.correct, note: chk.note, suggested: !chk.correct ? 0 : chk.close ? 1 : card.mode === 'automatic' ? (fast ? 3 : 1) : 2 };
         draw();
       },
       grade(el) {
@@ -368,7 +368,7 @@
         if (res) return;
         given = s.body.querySelector('#ans').value;
         const err = s.lang.errors.find((x) => x.id === cur().id);
-        res = LOS.learn.checkAnswer({ t: 'fix', a: [err.right] }, given);
+        res = LOS.learn.checkAnswer({ t: 'fix', a: [err.right] }, given, s.code);
         draw();
       },
     });
@@ -390,19 +390,7 @@
     let phase = 'meet', idx = 0, res = null, given = '', mcq = null;
     const total = items.length * 3;
     function stepDone() { return (phase === 'meet' ? 0 : phase === 'recog' ? items.length : items.length * 2) + idx; }
-    function dictHTML(v) {
-      return `<div class="dict">
-        <div class="between"><div><div class="dict-word">${esc(v.w)}</div><div class="dict-ipa">${v.ipa ? esc(v.ipa) : ''}${ui.speakBtn(v.w, s.code)}</div></div><div class="cluster"><span class="pill">${esc(v.l)}</span><span class="pill outline">${esc(LOS.shared.KIND_LABEL[v.k] || v.k)}</span>${v.d !== 'general' ? `<span class="pill accent">${esc(LOS.shared.DOMAIN_LABEL[v.d] || v.d)}</span>` : ''}</div></div>
-        ${v.pos ? `<div class="faint small mt-4">${esc(v.pos)}${v.reg && v.reg !== 'neutral' ? ' · ' + esc(v.reg) : ''}</div>` : ''}
-        <div class="dict-sec"><div class="eyebrow">Definition</div><div class="q">${esc(v.def)}</div></div>
-        <div class="dict-sec"><div class="eyebrow">Italiano</div><div class="q">${esc(v.tr)}</div></div>
-        ${v.ex ? `<div class="dict-sec"><div class="eyebrow">Example</div><div class="between"><div class="q ex">“${esc(v.ex)}”</div>${ui.speakBtn(v.ex, s.code)}</div></div>` : ''}
-        ${v.col && v.col.length ? `<div class="dict-sec"><div class="eyebrow">Collocations</div><div class="colls">${v.col.map((c) => `<span>${esc(c)}</span>`).join('')}</div></div>` : ''}
-        ${(v.syn && v.syn.length) || (v.ant && v.ant.length) ? `<div class="dict-sec grid grid-2">${v.syn && v.syn.length ? `<div><div class="eyebrow">Related</div><div>${esc(v.syn.join(', '))}</div></div>` : ''}${v.ant && v.ant.length ? `<div><div class="eyebrow">Opposite</div><div>${esc(v.ant.join(', '))}</div></div>` : ''}</div>` : ''}
-        ${v.ctx ? `<div class="dict-sec"><div class="eyebrow">Usage</div><div class="small muted">${esc(v.ctx)}</div></div>` : ''}
-        ${v.ff ? `<div class="ff">${icon('flag', 14)} ${esc(v.ff)}</div>` : ''}
-      </div>`;
-    }
+    function dictHTML(v) { return ui.dictCard(v, s.code, null, { mastery: false }); }
     function draw() {
       s.progress(stepDone() / total);
       const v = items[idx];
@@ -452,7 +440,7 @@
       nextMeet() { advance(); },
       known() { results[items[idx].id] = { known: true }; advance(); },
       opt(el) { if (res) return; given = el.dataset.v; const ok = +given === mcq.answer; (results[items[idx].id] = results[items[idx].id] || {}).rec = ok; res = { correct: ok }; draw(); },
-      submit() { if (res) return; given = s.body.querySelector('#ans').value; const chk = LOS.learn.checkAnswer({ t: 'gap', a: [items[idx].w] }, given); (results[items[idx].id] = results[items[idx].id] || {}).recall = chk.correct; res = chk; draw(); },
+      submit() { if (res) return; given = s.body.querySelector('#ans').value; const chk = LOS.learn.checkAnswer({ t: 'gap', a: [items[idx].w] }, given, s.code); (results[items[idx].id] = results[items[idx].id] || {}).recall = chk.correct; res = chk; draw(); },
       reveal() { given = '—'; (results[items[idx].id] = results[items[idx].id] || {}).recall = false; res = { correct: false }; draw(); },
       next() { advance(); },
     });
@@ -1002,8 +990,8 @@
     }
     const own = {
       toQuiz() { phase = quiz.length ? 'quiz' : 'task'; draw(); },
-      opt(el) { if (res) return; given = el.dataset.v; res = LOS.learn.checkAnswer(quiz[qi], given); if (res.correct) correct++; draw(); },
-      submit() { if (res) return; given = s.body.querySelector('#ans').value; res = LOS.learn.checkAnswer(quiz[qi], given); if (res.correct) correct++; draw(); },
+      opt(el) { if (res) return; given = el.dataset.v; res = LOS.learn.checkAnswer(quiz[qi], given, s.code); if (res.correct) correct++; draw(); },
+      submit() { if (res) return; given = s.body.querySelector('#ans').value; res = LOS.learn.checkAnswer(quiz[qi], given, s.code); if (res.correct) correct++; draw(); },
       next() { res = null; given = null; qi++; draw(); },
       async checkW() { text = s.body.querySelector('#sct').value; if (U.words(text).length < 5) return; analysis = await LOS.AI.evaluateWriting(s.code, { text, level: m.l, reg: 'formal', keys: sc.keys }); draw(); },
       rate(el) {

@@ -694,7 +694,7 @@
   ];
 
   LOS.lang.register({
-    code: 'en', name: 'English', native: 'English', short: 'EN', locale: 'en-GB', speech: 'en-GB', accent: 'var(--lang-en)',
+    code: 'en', // name, flag, locale… come from LOS.LANGUAGES (js/content/languages.js)
     grammar, vocab, texts, assessment, think, writing, speaking, listeningSources, checks,
     connectors: {
       A2: ['and', 'but', 'because', 'so', 'then', 'also'],

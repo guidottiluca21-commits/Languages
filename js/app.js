@@ -204,9 +204,14 @@
     }
   }
 
+  function closeLangMenu(btn) { btn.setAttribute('aria-expanded', 'false'); if (btn.nextElementSibling) btn.nextElementSibling.hidden = true; }
+
   function wireGlobals() {
     window.addEventListener('hashchange', () => render());
     document.addEventListener('click', (e) => {
+      const trig = e.target.closest('[data-lang-menu]');
+      document.querySelectorAll('[data-lang-menu]').forEach((b) => { if (b !== trig) closeLangMenu(b); });
+      if (trig) { const open = trig.getAttribute('aria-expanded') !== 'true'; if (open) { trig.setAttribute('aria-expanded', 'true'); trig.nextElementSibling.hidden = false; const f = trig.nextElementSibling.querySelector('.active, .lang-opt'); if (f) f.focus(); } else closeLangMenu(trig); return; }
       const lang = e.target.closest('[data-lang]');
       if (lang) {
         const c = lang.dataset.lang;
@@ -231,7 +236,12 @@
       if (e.target.closest('[data-theme-toggle]')) { setTheme(effectiveDark() ? 'light' : 'dark'); LOS.shell.render(current ? current.name : 'dashboard'); return; }
       if (e.target.closest('#sidebar a')) closeDrawer();
     });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.getElementById('sidebar').classList.contains('open')) closeDrawer(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const openMenu = document.querySelector('[data-lang-menu][aria-expanded="true"]');
+      if (openMenu) { closeLangMenu(openMenu); openMenu.focus(); return; }
+      if (document.getElementById('sidebar').classList.contains('open')) closeDrawer();
+    });
 
     LOS.bus.on('gain', (g) => ui.toast(`New: ${g.text}`, 'award'));
     LOS.bus.on('achievement', (a) => ui.toast(a.label, 'award'));

@@ -115,12 +115,12 @@
     const dayRec = st.days[d] || {};
     let plansHTML = '';
     if (d <= today) {
-      const blocks = LOS.store.studying().map((c) => { const p = LOS.store.lang(c).plans[d]; return p ? `<div class="mt-12"><div class="strong small">${ui.langDot(c)} ${esc(ui.langName(c))}</div><div class="list">${p.items.map((it) => `<div class="row" style="min-height:40px;padding:8px 0"><span class="pill ${it.status === 'done' ? 'ok' : it.status === 'pending' ? 'accent' : ''}">${it.status}</span><span class="grow small">${esc(it.title)} · ${esc(it.subtitle || '')}</span><span class="faint small">${it.minutes} min</span></div>`).join('')}</div></div>` : ''; }).join('');
+      const blocks = LOS.store.studying().map((c) => { const p = LOS.store.lang(c).plans[d]; return p ? `<div class="mt-12"><div class="strong small">${ui.langFlag(c)} ${esc(ui.langName(c))}</div><div class="list">${p.items.map((it) => `<div class="row" style="min-height:40px;padding:8px 0"><span class="pill ${it.status === 'done' ? 'ok' : it.status === 'pending' ? 'accent' : ''}">${it.status}</span><span class="grow small">${esc(it.title)} · ${esc(it.subtitle || '')}</span><span class="faint small">${it.minutes} min</span></div>`).join('')}</div></div>` : ''; }).join('');
       const ses = [].concat(...LOS.store.studying().map((c) => LOS.store.lang(c).sessions.filter((s) => s.date === d).map((s) => Object.assign({ c }, s))));
       plansHTML = (blocks || '<p class="muted small">No plan stored for this day.</p>') + (ses.length ? `<div class="mt-16"><div class="eyebrow">Completed</div><div class="list">${ses.map((s) => `<div class="row" style="min-height:36px;padding:6px 0">${icon(ui.SKILL_ICON[s.type] || 'check', 15)}<span class="grow small">${esc(ui.langName(s.c))} · ${esc(s.title || s.type)}</span><span class="faint small">${s.minutes} min</span></div>`).join('')}</div></div>` : '');
     } else {
       const f = LOS.planner.forecast(d);
-      plansHTML = f.langs.length ? f.langs.map((l) => `<div class="mt-12"><div class="strong small">${ui.langDot(l.code)} ${esc(ui.langName(l.code))} · ${l.minutes} min</div><div class="cluster mt-8">${l.blocks.map((bk) => `<span class="pill outline"><i class="cat-dot ${ui.CAT_OF[bk.skill] || 'study'}"></i>${esc(U.SKILL_LABEL[bk.skill] || bk.skill)} ${bk.minutes}′</span>`).join('')}</div></div>`).join('') + '<p class="faint xs mt-12">Forecast — the exact activities are chosen on the day, from your latest performance.</p>' : '<p class="muted small">No study planned.</p>';
+      plansHTML = f.langs.length ? f.langs.map((l) => `<div class="mt-12"><div class="strong small">${ui.langFlag(l.code)} ${esc(ui.langName(l.code))} · ${l.minutes} min</div><div class="cluster mt-8">${l.blocks.map((bk) => `<span class="pill outline"><i class="cat-dot ${ui.CAT_OF[bk.skill] || 'study'}"></i>${esc(U.SKILL_LABEL[bk.skill] || bk.skill)} ${bk.minutes}′</span>`).join('')}</div></div>`).join('') + '<p class="faint xs mt-12">Forecast — the exact activities are chosen on the day, from your latest performance.</p>' : '<p class="muted small">No study planned.</p>';
     }
     ui.modal({
       title: U.fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' }), wide: true,
@@ -224,7 +224,7 @@
       const maxMin = Math.max(30, ...last28.map((d) => mins[d] || 0));
       const ach = LOS.learn.ACHIEVEMENTS;
       return `<div class="view">
-        <div class="page-head"><div><div class="eyebrow">${ui.langDot(code())} ${esc(p.name)}</div><h1 class="mt-4"><span class="level">${o.sub}</span> → ${rm.nextLevel}</h1><p class="sub">Progress is measured from evidence — skill estimates, grammar mastery, active vocabulary and production quality — not from time spent.</p></div>
+        <div class="page-head"><div><div class="eyebrow">${ui.langFlag(code())} ${esc(p.name)}</div><h1 class="mt-4"><span class="level">${o.sub}</span> → ${rm.nextLevel}</h1><p class="sub">Progress is measured from evidence — skill estimates, grammar mastery, active vocabulary and production quality — not from time spent.</p></div>
           <a class="btn" href="#/assessment">${icon('target', 15)} Retake placement test</a></div>
         <div class="card"><div class="roadmap" aria-label="Roadmap from A1 to C2">
           <div class="you" style="left:${youPct}%">YOU</div>
@@ -265,7 +265,7 @@
       const stats = LOS.learn.errorStats(code(), 60);
       const max = stats.byLabel.length ? stats.byLabel[0].weight : 1;
       const list = L.errors.filter((e) => (errState.showResolved || !e.resolved) && (errState.cat === 'all' || e.cat === errState.cat) && (!errState.label || e.label === errState.label));
-      const catLabel = Object.fromEntries(LOS.shared.ERROR_CATS);
+      const catLabel = Object.fromEntries(LOS.lang.errorCats(code()));
       const dueCards = LOS.learn.dueErrorCards(code()).length;
       return `<div class="view">
         <div class="page-head"><div><h1>Error Log</h1><p class="sub">Every mistake from exercises, writing, speaking and reviews — classified, counted and fed back into your plan. Frequent patterns get more practice; fixed ones fade out.</p></div>
@@ -274,10 +274,10 @@
           <div><div class="section-head"><h2>Most frequent errors</h2><span class="faint small">last 60 days, recent weighted</span></div>
             ${stats.byLabel.length ? stats.byLabel.slice(0, 8).map((x, i) => `<div class="freq-row clickable" data-act="label" data-v="${esc(x.label)}" role="button" style="cursor:pointer"><span class="n">${i + 1}.</span><span class="${errState.label === x.label ? 'strong' : ''}">${esc(x.label)}</span>${ui.bar((x.weight / max) * 100, 'thin')}<span class="num faint">${x.count}</span></div>`).join('') : '<p class="muted small">No errors recorded yet. They will appear automatically as you practise.</p>'}</div>
           <div><div class="section-head"><h2>By category</h2></div>
-            <div class="list">${LOS.shared.ERROR_CATS.filter(([k]) => stats.byCat[k]).map(([k, l]) => `<div class="row" style="min-height:40px;padding:8px 0"><span class="grow">${l}</span><span class="num">${stats.byCat[k]}</span></div>`).join('') || '<p class="muted small">—</p>'}</div>
+            <div class="list">${LOS.lang.errorCats(code()).filter(([k]) => stats.byCat[k]).map(([k, l]) => `<div class="row" style="min-height:40px;padding:8px 0"><span class="grow">${l}</span><span class="num">${stats.byCat[k]}</span></div>`).join('') || '<p class="muted small">—</p>'}</div>
             <p class="faint small mt-16">How the planner uses this: grammar-type errors raise grammar time and pull the linked topic forward; collocation, word-choice, false-friend and Italian-interference errors raise vocabulary work; every corrected sentence becomes a review card.</p></div>
         </div>
-        <div class="section"><div class="between" style="flex-wrap:wrap">${ui.chips('cat', [['all', 'All']].concat(LOS.shared.ERROR_CATS), errState.cat)}
+        <div class="section"><div class="between" style="flex-wrap:wrap">${ui.chips('cat', [['all', 'All']].concat(LOS.lang.errorCats(code()).filter(([k]) => k === errState.cat || L.errors.some((e) => e.cat === k))), errState.cat)}
           <label class="check small"><input type="checkbox" data-act="resolved" ${errState.showResolved ? 'checked' : ''}> Show resolved</label></div>
           ${errState.label ? `<div class="mt-12"><span class="pill accent">${esc(errState.label)} <button class="btn ghost icon sm" data-act="clearLabel" aria-label="Clear filter" style="height:18px;width:18px">${icon('x', 12)}</button></span></div>` : ''}
           <div class="list mt-16">${list.slice(0, 150).map((e) => `<div class="err"><div>${e.wrong ? `<div class="w">${esc(e.wrong)}</div>` : ''}<div class="r">${esc(e.right)}</div>${e.note ? `<div class="faint small mt-4">${esc(e.note)}</div>` : ''}<div class="faint xs mt-4">${esc(e.label)} · ${esc(catLabel[e.cat] || e.cat)} · ${esc(e.src)} · ${U.relDate(e.date)}</div></div>
@@ -305,7 +305,7 @@
           ui.modal({
             title: 'Add an error',
             body: `<div class="stack" style="--gap:12px"><div class="field"><label for="e-w">What you said / wrote</label><input class="input" id="e-w"></div><div class="field"><label for="e-r">Correct version</label><input class="input" id="e-r"></div>
-              <div class="grid grid-2"><div class="field"><label for="e-c">Category</label><select class="select" id="e-c">${LOS.shared.ERROR_CATS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div><div class="field"><label for="e-l">Area (e.g. Prepositions)</label><input class="input" id="e-l" placeholder="Prepositions"></div></div>
+              <div class="grid grid-2"><div class="field"><label for="e-c">Category</label><select class="select" id="e-c">${LOS.lang.errorCats(code()).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div><div class="field"><label for="e-l">Area (e.g. Prepositions)</label><input class="input" id="e-l" placeholder="Prepositions"></div></div>
               <div class="field"><label for="e-n">Note</label><input class="input" id="e-n"></div></div>`,
             foot: '<button class="btn" data-close>Cancel</button><button class="btn primary" data-ok>Save</button>',
             onMount(m, close) {
@@ -313,7 +313,7 @@
                 const v = (id) => m.querySelector(id).value.trim();
                 if (!v('#e-r')) { ui.toast('Add the correct version', 'errors'); return; }
                 const cat = v('#e-c');
-                LOS.learn.recordError(code(), { src: 'manual', cat, label: v('#e-l') || (LOS.shared.ERROR_CATS.find((c) => c[0] === cat) || [])[1], wrong: v('#e-w'), right: v('#e-r'), note: v('#e-n') });
+                LOS.learn.recordError(code(), { src: 'manual', cat, label: v('#e-l') || (LOS.lang.errorCats(code()).find((c) => c[0] === cat) || [])[1], wrong: v('#e-w'), right: v('#e-r'), note: v('#e-n') });
                 LOS.store.save(); close(); LOS.app.refresh();
               });
             },
@@ -340,7 +340,7 @@
       const next = lastNext;
       const improved = U.SKILLS.map((sk) => { const now = LOS.skills.theta(L, sk), then = LOS.skills.thetaAt(L, sk, U.addDays(U.today(), -7)); return { sk, d: now != null && then != null ? now - then : 0 }; }).filter((x) => x.d > 0.02).sort((a, b) => b.d - a.d);
       return `<div class="view narrow">
-        <div class="page-head"><div><div class="eyebrow">${ui.langDot(code())} ${esc(ui.langName(code()))} · ${U.fmtDate(U.addDays(U.today(), -6), { day: 'numeric', month: 'short' })} – ${U.fmtDate(U.today(), { day: 'numeric', month: 'short' })}</div><h1 class="mt-4">Weekly review</h1><p class="sub">Look back honestly; the planner adapts next week's load and focus to your answers.</p></div></div>
+        <div class="page-head"><div><div class="eyebrow">${ui.langFlag(code())} ${esc(ui.langName(code()))} · ${U.fmtDate(U.addDays(U.today(), -6), { day: 'numeric', month: 'short' })} – ${U.fmtDate(U.today(), { day: 'numeric', month: 'short' })}</div><h1 class="mt-4">Weekly review</h1><p class="sub">Look back honestly; the planner adapts next week's load and focus to your answers.</p></div></div>
         <div class="stats-row"><div class="stat"><span class="v">${U.fmtMin(s.minutes)}</span><span class="k">Study time</span></div><div class="stat"><span class="v">${U.fmtMin(s.listening)}</span><span class="k">Listening</span></div><div class="stat"><span class="v">${s.wordsStable}</span><span class="k">Vocabulary learned</span></div><div class="stat"><span class="v">${s.grammarMastered}</span><span class="k">Grammar mastered</span></div><div class="stat"><span class="v">${s.writings}</span><span class="k">Writing</span></div><div class="stat"><span class="v">${s.speakings}</span><span class="k">Speaking</span></div><div class="stat"><span class="v">${s.daysStudied}/7</span><span class="k">Consistency</span></div><div class="stat"><span class="v">${s.realism == null ? '—' : Math.round(s.realism * 100) + '%'}</span><span class="k">Plan completed</span></div></div>
         <div class="section grid grid-2" style="--gap:32px">
           <div><div class="eyebrow">What improved</div><div class="mt-8 small">${improved.length ? improved.map((x) => `${U.SKILL_LABEL[x.sk]} +${U.round(x.d, 2)}`).join(' · ') : '<span class="muted">No measurable change yet.</span>'}</div>
@@ -378,6 +378,6 @@
   function nextWeekHTML(nw) {
     return `<div class="section" id="next-week"><div class="section-head"><h2>Next week</h2><span class="faint small">${U.fmtMin(nw.total)} · ${nw.deepDays} deep days · ${nw.lightDays} light days</span></div>
       <div class="list">${nw.days.map((d) => `<div class="row"><span style="width:96px" class="strong small">${U.fmtDate(d.date)}</span><div class="grow"><div class="small">${esc(d.budget.info.label)}</div><div class="cluster mt-4">${d.langs.map((l) => l.blocks.map((b) => `<span class="pill outline xs"><i class="cat-dot ${ui.CAT_OF[b.skill] || 'study'}"></i>${LOS.lang.get(l.code).short} ${esc(U.SKILL_LABEL[b.skill] || b.skill)} ${b.minutes}′</span>`).join('')).join('')}</div></div><span class="pill">${d.budget.mode === 'rest' ? 'rest' : d.budget.minutes + ' min'}</span></div>`).join('')}</div>
-      <div class="mt-24">${Object.keys(nw.priorities).map((c) => { const pr = nw.priorities[c]; return `<div class="card soft mt-8"><div class="strong">${ui.langDot(c)} ${esc(ui.langName(c))} priorities</div><div class="small muted mt-8">Focus skill: <strong>${U.SKILL_LABEL[pr.focus] || '—'}</strong> · Grammar: ${esc(pr.topic || '—')} · Planned listening: ${U.fmtMin(pr.listening)}${pr.errors.length ? ` · Error patterns: ${esc(pr.errors.join(', '))}` : ''}</div></div>`; }).join('')}</div></div>`;
+      <div class="mt-24">${Object.keys(nw.priorities).map((c) => { const pr = nw.priorities[c]; return `<div class="card soft mt-8"><div class="strong">${ui.langFlag(c)} ${esc(ui.langName(c))} priorities</div><div class="small muted mt-8">Focus skill: <strong>${U.SKILL_LABEL[pr.focus] || '—'}</strong> · Grammar: ${esc(pr.topic || '—')} · Planned listening: ${U.fmtMin(pr.listening)}${pr.errors.length ? ` · Error patterns: ${esc(pr.errors.join(', '))}` : ''}</div></div>`; }).join('')}</div></div>`;
   }
 })();

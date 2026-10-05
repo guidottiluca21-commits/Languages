@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0f0f10" media="(prefers-color-scheme: dark)">
-  <meta name="description" content="Personal language learning OS — English and Spanish to C2.">
+  <meta name="description" content="Personal language learning OS — English, Spanish, German and French to C2.">
   <title>Lingua OS — Personal Language Learning OS</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
@@ -43,12 +43,21 @@
   <!-- Core -->
   <script src="js/core.js"></script>
   <script src="js/config.js"></script>
-  <!-- Content packs (one file per language) -->
+  <!-- Language registry (single place where a language is declared) -->
+  <script src="js/content/languages.js"></script>
+  <!-- Content packs (one set of files per language) -->
   <script src="js/content/shared.js"></script>
   <script src="js/content/en.js"></script>
   <script src="js/content/en-pro.js"></script>
   <script src="js/content/es.js"></script>
   <script src="js/content/es-pro.js"></script>
+  <script src="js/content/de.js"></script>
+  <script src="js/content/de-lex.js"></script>
+  <script src="js/content/de-pro.js"></script>
+  <script src="js/content/fr.js"></script>
+  <script src="js/content/fr-lex.js"></script>
+  <script src="js/content/fr-pro.js"></script>
+  <script src="js/content/compare.js"></script>
   <!-- State -->
   <script src="js/state/store.js"></script>
   <!-- Learning engine -->

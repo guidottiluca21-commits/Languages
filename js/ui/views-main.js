@@ -17,14 +17,20 @@
   ];
   const ROUTE_TITLE = { dashboard: 'Dashboard', today: 'Today', grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', medical: 'Medical', professional: 'Professional', calendar: 'Calendar', progress: 'Progress', errors: 'Error Log', review: 'Weekly Review', settings: 'Settings', assessment: 'Assessment', session: 'Session', practice: 'Practice' };
 
-  function langSwitch() {
+  /** Compact language selector: "🇩🇪 Deutsch · A2 ▾" with a menu of all languages. */
+  function langSwitch(where) {
     const codes = LOS.lang.codes();
     const active = LOS.store.active();
-    return `<div class="lang-switch" role="group" aria-label="Active language">${codes.map((c) => {
-      const L = S().langs[c];
-      const lvl = L && L.onboarded ? LOS.skills.calculateLevel(L) : null;
-      return `<button class="${c === active ? 'active' : ''}" data-lang="${c}" aria-pressed="${c === active}" title="${esc(ui.langName(c))}">${ui.langDot(c)}${LOS.lang.get(c).short}${lvl ? `<span class="lvl">${lvl.label}</span>` : ''}</button>`;
-    }).join('')}</div>`;
+    const lvlOf = (c) => { const L = S().langs[c]; return L && L.onboarded ? LOS.skills.calculateLevel(L) : null; };
+    const cur = lvlOf(active);
+    const id = 'lang-pop-' + where;
+    return `<div class="lang-menu">
+      <button class="lang-trigger" data-lang-menu aria-haspopup="true" aria-expanded="false" aria-controls="${id}" title="Change language">${ui.langFlag(active)}<span class="nm">${esc(ui.langNative(active))}</span>${cur ? `<span class="lvl">${cur.label}</span>` : ''}${icon('chevronDown', 14)}</button>
+      <div class="lang-pop" id="${id}" hidden>${codes.map((c) => {
+        const l = lvlOf(c);
+        if (!l) return `<a class="lang-opt" href="#/welcome/${c}">${ui.langFlag(c)}<span class="nm">${esc(ui.langNative(c))}</span><span class="faint xs">Set up</span></a>`;
+        return `<button class="lang-opt ${c === active ? 'active' : ''}" data-lang="${c}" aria-current="${c === active}">${ui.langFlag(c)}<span class="nm">${esc(ui.langNative(c))}</span><span class="lvl">${l.label}</span>${c === active ? icon('check', 14) : ''}</button>`;
+      }).join('')}</div></div>`;
   }
 
   LOS.shell = {
@@ -35,7 +41,7 @@
       const reviewDue = LOS.store.studying().some((c) => LOS.progress.weeklyReviewDue(c));
       const streak = LOS.learn.streak();
       sb.innerHTML = `<div class="brand"><span class="brand-mark">L</span>Lingua OS<small>${streak ? `${icon('flame', 12)} ${streak}` : ''}</small></div>
-        ${langSwitch()}
+        ${langSwitch('side')}
         <nav aria-label="Sections">${NAV.map((g) => `<div class="nav-label">${g.group}</div>${g.items.map(([r, l, ic]) => `<a class="nav-item ${route === r ? 'active' : ''}" href="#/${r}" ${route === r ? 'aria-current="page"' : ''}>${icon(ic, 17)}<span>${l}</span>${r === 'today' && pending ? `<span class="badge">${pending}</span>` : ''}${r === 'grammar' || r === 'vocabulary' ? '' : ''}${r === 'review' && reviewDue ? '<span class="badge accent">1</span>' : ''}</a>`).join('')}`).join('')}</nav>
         <div class="sidebar-foot">
           <button class="sync-pill" data-sync-pill hidden title="Stato della sincronizzazione"><i aria-hidden="true"></i><span class="t"></span></button>
@@ -44,7 +50,7 @@
           <button class="nav-item" data-theme-toggle aria-label="Toggle dark mode">${icon(document.documentElement.getAttribute('data-theme') === 'dark' || (document.documentElement.getAttribute('data-theme') === 'system' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'sun' : 'moon', 17)}<span>Appearance</span></button>
         </div>`;
       const tb = document.getElementById('topbar');
-      tb.innerHTML = `<button class="btn ghost icon" data-drawer aria-label="Open menu">${icon('menu', 20)}</button><div class="t">${esc(ROUTE_TITLE[route] || 'Lingua OS')}</div><button class="sync-pill dot-only" data-sync-pill hidden aria-label="Stato della sincronizzazione"><i aria-hidden="true"></i><span class="t sr-only"></span></button>${langSwitch()}`;
+      tb.innerHTML = `<button class="btn ghost icon" data-drawer aria-label="Open menu">${icon('menu', 20)}</button><div class="t">${esc(ROUTE_TITLE[route] || 'Lingua OS')}</div><button class="sync-pill dot-only" data-sync-pill hidden aria-label="Stato della sincronizzazione"><i aria-hidden="true"></i><span class="t sr-only"></span></button>${langSwitch('top')}`;
       const bn = document.getElementById('bottom-nav');
       const items = [['dashboard', 'Home', 'dashboard'], ['today', 'Today', 'today'], ['practice', 'Review', 'review'], ['calendar', 'Calendar', 'calendar'], ['more', 'More', 'menu']];
       bn.innerHTML = items.map(([r, l, ic]) => `<button class="${route === r ? 'active' : ''}" data-bn="${r}" aria-label="${l}">${icon(ic, 21)}<span>${l}</span></button>`).join('');
@@ -101,10 +107,10 @@
       const reviewDue = LOS.progress.weeklyReviewDue(code);
 
       let focus;
-      if (budget.mode === 'rest') focus = `<div class="focus-card"><div><div class="ctx">${ui.langDot(code)} ${esc(p.name)} · ${overall.sub} → ${overall.next}</div><h1>Rest day</h1><p class="why">Recovery is part of learning. If you feel like it, a short review keeps the chain alive.</p></div><div class="go"><a class="btn" href="#/practice/review/all">Quick review</a></div></div>`;
-      else if (!plan) focus = `<div class="focus-card"><div><div class="ctx">${ui.langDot(code)} ${esc(p.name)} · ${overall.sub} → ${overall.next}</div><h1>Today belongs to ${esc(other ? ui.langName(other.code) : 'another language')}</h1><p class="why">On short days, one language gets the whole session. You can still add ${esc(p.name)}.</p></div><div class="go"><button class="btn primary lg" data-act="extra">Add a ${esc(p.name)} session</button></div></div>`;
-      else if (!first) focus = `<div class="focus-card"><div><div class="ctx">${ui.langDot(code)} ${esc(p.name)} · ${overall.sub} → ${overall.next}</div><h1>Today is done.</h1><p class="why">${plan.items.filter((i) => i.status === 'done').length} activities completed. ${other ? `${esc(ui.langName(other.code))} still has activities waiting.` : 'See you tomorrow.'}</p></div><div class="go">${other ? `<button class="btn primary lg" data-act="switch" data-code="${other.code}">Continue with ${esc(ui.langName(other.code))}</button>` : `<button class="btn" data-act="extra">Extra 15 min</button>`}</div></div>`;
-      else focus = `<div class="focus-card"><div><div class="ctx">${ui.langDot(code)} ${esc(p.name)} · <span class="level">${overall.sub}</span> ${icon('arrowRight', 13)} ${overall.next}</div><div class="eyebrow">Today's focus</div><h1 class="mt-4">${esc(plan.focus.title)}</h1><p class="why">${esc(plan.focus.sub || '')}</p></div>
+      if (budget.mode === 'rest') focus = `<div class="focus-card"><div><div class="ctx">${ui.langFlag(code)} ${esc(p.name)} · ${overall.sub} → ${overall.next}</div><h1>Rest day</h1><p class="why">Recovery is part of learning. If you feel like it, a short review keeps the chain alive.</p></div><div class="go"><a class="btn" href="#/practice/review/all">Quick review</a></div></div>`;
+      else if (!plan) focus = `<div class="focus-card"><div><div class="ctx">${ui.langFlag(code)} ${esc(p.name)} · ${overall.sub} → ${overall.next}</div><h1>Today belongs to ${esc(other ? ui.langName(other.code) : 'another language')}</h1><p class="why">On short days, one language gets the whole session. You can still add ${esc(p.name)}.</p></div><div class="go"><button class="btn primary lg" data-act="extra">Add a ${esc(p.name)} session</button></div></div>`;
+      else if (!first) focus = `<div class="focus-card"><div><div class="ctx">${ui.langFlag(code)} ${esc(p.name)} · ${overall.sub} → ${overall.next}</div><h1>Today is done.</h1><p class="why">${plan.items.filter((i) => i.status === 'done').length} activities completed. ${other ? `${esc(ui.langName(other.code))} still has activities waiting.` : 'See you tomorrow.'}</p></div><div class="go">${other ? `<button class="btn primary lg" data-act="switch" data-code="${other.code}">Continue with ${esc(ui.langName(other.code))}</button>` : `<button class="btn" data-act="extra">Extra 15 min</button>`}</div></div>`;
+      else focus = `<div class="focus-card"><div><div class="ctx">${ui.langFlag(code)} ${esc(p.name)} · <span class="level">${overall.sub}</span> ${icon('arrowRight', 13)} ${overall.next}</div><div class="eyebrow">Today's focus</div><h1 class="mt-4">${esc(plan.focus.title)}</h1><p class="why">${esc(plan.focus.sub || '')}</p></div>
           <div class="go"><span class="mins">${remaining} min · ${plan.items.filter((i) => i.status === 'pending').length} activities left</span><a class="btn primary lg" href="#/session/${code}/${U.today()}/${first.id}">${plan.items.some((i) => i.status === 'done') ? 'Continue' : 'Start session'} ${icon('arrowRight', 16)}</a></div></div>`;
 
       const today = plan ? `<div class="section"><div class="section-head"><h2>Today</h2><a class="small" href="#/today">${plan.minutes} min · ${plan.items.length} activities</a></div>
@@ -112,10 +118,15 @@
 
       const langs = LOS.lang.codes().map((c) => {
         const LL = st.langs[c];
-        if (!LL || !LL.onboarded) return `<div class="lang-row"><div class="name">${ui.langDot(c)} ${esc(ui.langName(c))}</div><a class="btn sm" href="#/welcome/${c}">Set up</a></div>`;
+        if (!LL || !LL.onboarded) return `<a class="lang-card off" href="#/welcome/${c}"><div class="top">${ui.langFlag(c)}<span class="nm">${esc(ui.langNative(c))}</span></div><div class="faint small mt-8">Not started · placement test ~15 min</div><span class="btn sm mt-12">Set up</span></a>`;
         const o = LOS.skills.calculateLevel(LL);
         const r = LOS.progress.roadmap(c);
-        return `<div class="lang-row"><a class="name" href="#" data-act="switch" data-code="${c}">${ui.langDot(c)} ${esc(ui.langName(c))}</a><span class="lv"><span class="level">${o.sub}</span> → ${r.nextLevel} · <span class="faint">target ${LL.targetLevel}</span></span>${ui.bar(r.readiness * 100, 'thin', 'Progress to next level')}</div>`;
+        const lp = plans.find((x) => x.code === c);
+        const due = LOS.learn.dueVocab(c).length + LOS.learn.dueErrorCards(c).length + LOS.learn.grammarList(c).filter((g) => g.due).length;
+        return `<button class="lang-card ${c === code ? 'on' : ''}" data-act="switch" data-code="${c}" aria-pressed="${c === code}" aria-label="Open the ${esc(ui.langName(c))} dashboard">
+          <div class="top">${ui.langFlag(c)}<span class="nm">${esc(ui.langNative(c))}</span><span class="lv"><span class="level">${o.sub}</span> → ${r.nextLevel}</span></div>
+          <div class="mt-12">${ui.bar(r.readiness * 100, 'thin', 'Progress to ' + r.nextLevel)}</div>
+          <div class="meta faint xs mt-8"><span>${Math.round(r.readiness * 100)}% to ${r.nextLevel}</span><span>target ${esc(LL.targetLevel)}</span><span>${lp ? lp.plan.minutes + ' min today' : 'rest / rotation today'}</span>${due ? `<span>${due} due</span>` : ''}</div></button>`;
       }).join('');
 
       const matrix = `<div class="matrix">${U.SKILLS.map((s) => { const t = LOS.skills.theta(L, s); return `<span class="lbl">${U.SKILL_LABEL[s]}</span>${ui.dots(t)}<span class="lv ${L.skills[s] && L.skills[s].conf === 'low' ? 'low' : ''}">${t == null ? '—' : U.thetaInfo(t).sub}</span>`; }).join('')}</div>`;
@@ -128,7 +139,7 @@
           <div class="energy-strip">${icon(budget.mode === 'mvs' ? 'battery' : 'activity', 14)}<span>${esc(info.label)}</span><span>·</span><span>${esc(modeLabel(budget.mode))}</span>${budget.why[1] ? `<span>·</span><span>${esc(budget.why[1])}</span>` : ''}
           <button class="btn ghost sm" data-act="lowEnergy">${info.lowEnergy ? 'Normal energy' : 'Low energy today'}</button></div></div>
         ${today}
-        <div class="section"><div class="section-head"><h2>Language overview</h2><a class="small" href="#/progress">Roadmap</a></div><div class="list">${langs}</div></div>
+        <div class="section"><div class="section-head"><h2>Language overview</h2><a class="small" href="#/progress">Roadmap</a></div><div class="lang-cards">${langs}</div></div>
         <div class="section grid grid-2" style="--gap:48px">
           <div><div class="section-head"><h2>Skill matrix</h2><span class="faint small">A1 → C2</span></div>${matrix}</div>
           <div class="stack" style="--gap:22px">
@@ -212,7 +223,7 @@
           <p class="sub">${budget.mode === 'rest' ? 'Rest day.' : `${total} minutes · ${U.sum(plans.map((p) => p.plan.items.length))} activities`} ${done ? `· ${done} min done` : ''}</p></div>
           <div class="cluster"><button class="btn sm" data-act="lowEnergy">${icon('battery', 14)} ${info.lowEnergy ? 'Normal energy' : 'Low energy'}</button><button class="btn sm" data-act="rest">${icon('rest', 14)} ${info.rest ? 'Undo rest day' : 'Rest day'}</button><button class="btn ghost sm" data-act="regen">${icon('swap', 14)} Regenerate</button></div></div>
         <div class="notice">${icon('activity', 16)}<div><strong>${esc(info.label)}</strong> → ${esc(modeLabel(budget.mode))}. ${budget.why.map(esc).join(' · ')}</div></div>
-        ${plans.map(({ code: c, plan }) => `<div class="section"><div class="section-head"><h2>${ui.langDot(c)} ${esc(ui.langName(c))} · ${plan.minutes} min</h2><span class="faint small">${esc(modeLabel(plan.mode))}</span></div>
+        ${plans.map(({ code: c, plan }) => `<div class="section"><div class="section-head"><h2>${ui.langFlag(c)} ${esc(ui.langName(c))} · ${plan.minutes} min</h2><span class="faint small">${esc(modeLabel(plan.mode))}</span></div>
           <p class="muted small">Focus: <strong>${esc(plan.focus.title)}</strong></p>
           <div class="list mt-8">${plan.items.map((it) => planItemRow(c, U.today(), it)).join('')}</div></div>`).join('')}
         ${budget.mode === 'rest' ? ui.empty({ icon: 'rest', title: 'Rest day', text: 'Nothing scheduled. Spaced repetition waits for you; nothing piles up.', action: '<a class="btn" href="#/practice/review/all">Optional quick review</a>' }) : ''}

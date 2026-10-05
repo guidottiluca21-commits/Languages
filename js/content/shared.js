@@ -1,5 +1,6 @@
 /* Shared, language-independent content + the language-pack registry.
- * Adding French/German/… = writing a new pack and calling LOS.lang.register(pack). */
+ * Language metadata lives in js/content/languages.js (LOS.LANGUAGES); content packs register with
+ * LOS.lang.register({ code, grammar, vocab, … }). Adding a language never requires engine changes. */
 (function () {
   'use strict';
   const LOS = window.LOS;
@@ -10,7 +11,7 @@
   LOS.lang = {
     register(pack) {
       const code = pack.code;
-      const p = packs[code] || {};
+      const p = packs[code] || Object.assign({}, (LOS.LANGUAGES || {})[code] || {});
       // A language can be split across several files (e.g. en.js + en-pro.js): arrays are merged.
       Object.keys(pack).forEach((k) => {
         if (Array.isArray(p[k]) && Array.isArray(pack[k])) p[k] = p[k].concat(pack[k]);
@@ -25,6 +26,8 @@
       p.medical = p.medical || [];
       p.professional = p.professional || [];
       p.checks = p.checks || [];
+      p.pronunciation = p.pronunciation || [];
+      p.errorCats = p.errorCats || [];
       p.index = {
         grammar: Object.fromEntries(p.grammar.map((g) => [g.id, g])),
         vocab: Object.fromEntries(p.vocab.map((v) => [v.id, v])),
@@ -35,8 +38,20 @@
       return p;
     },
     get(code) { return packs[code]; },
-    list() { return Object.values(packs).filter((p) => p.name); },
-    codes() { return Object.keys(packs).filter((c) => packs[c].name); },
+    /** Language codes with a usable curriculum, in the order declared in LOS.LANGUAGES. */
+    codes() {
+      const order = Object.keys(LOS.LANGUAGES || {});
+      return Object.keys(packs).filter((c) => packs[c].name && packs[c].grammar.length)
+        .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+    },
+    list() { return this.codes().map((c) => packs[c]); },
+    /** Error categories for a language: shared ones + the language's own (cases, gender, agreement…). */
+    errorCats(code) {
+      const own = ((packs[code] && packs[code].errorCats) || []);
+      const shared = LOS.shared.ERROR_CATS.filter(([k]) => !own.some(([o]) => o === k));
+      return own.concat(shared);
+    },
+    errorCatLabel(code, cat) { const f = this.errorCats(code).find(([k]) => k === cat); return f ? f[1] : cat; },
   };
 
   function normVocab(code, v) {
@@ -64,8 +79,14 @@
     ERROR_CATS: [
       ['grammar', 'Grammar'], ['vocabulary', 'Vocabulary'], ['spelling', 'Spelling'], ['wordchoice', 'Word choice'],
       ['collocation', 'Collocation'], ['syntax', 'Syntax'], ['register', 'Register'], ['pronunciation', 'Pronunciation'],
-      ['falsefriend', 'False friend'], ['interference', 'Italian interference'],
+      ['falsefriend', 'False friend'], ['interference', 'Italian interference'], ['naturalness', 'Naturalness'],
     ],
+    /* Which skill an error category feeds (language-specific categories included). Unknown → grammar. */
+    ERROR_SKILL: {
+      vocabulary: 'vocabulary', collocation: 'vocabulary', naturalness: 'vocabulary', wordchoice: 'vocabulary', falsefriend: 'vocabulary', interference: 'vocabulary',
+      pronunciation: 'speaking', spelling: 'writing', capitalisation: 'writing', register: 'writing',
+    },
+    errorSkill(cat) { return LOS.shared.ERROR_SKILL[cat] || 'grammar'; },
     THINK_TYPES: {
       rapid: { label: 'Rapid response', secs: 20, desc: 'Answer immediately. No translating — first thought, target language.' },
       describe: { label: 'Describe', secs: 60, desc: 'Describe a scene or situation in detail.' },
@@ -166,7 +187,7 @@
     ],
     PRO_CATS: [
       ['meetings', 'Meetings'], ['diplomacy', 'Diplomacy'], ['feedback', 'Feedback'], ['negotiation', 'Negotiation'],
-      ['presenting', 'Presenting'], ['writing', 'Emails'], ['career', 'Career'], ['leadership', 'Leadership'],
+      ['presenting', 'Presenting'], ['writing', 'Emails'], ['career', 'Career'], ['leadership', 'Leadership'], ['teamwork', 'Teamwork'],
     ],
   };
 })();

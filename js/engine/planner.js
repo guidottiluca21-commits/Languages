@@ -150,8 +150,11 @@
     if (g.includes('c2')) { w.vocabulary *= 1.1; w.writing *= 1.1; }
     // error pressure → grammar / vocabulary
     const cats = ctx.errs.byLabel.reduce((o, x) => { o[x.cat] = (o[x.cat] || 0) + x.weight; return o; }, {});
-    w.grammar *= 1 + Math.min(0.6, ((cats.grammar || 0) + (cats.syntax || 0)) * 0.06);
-    w.vocabulary *= 1 + Math.min(0.5, ((cats.collocation || 0) + (cats.vocabulary || 0) + (cats.wordchoice || 0) + (cats.falsefriend || 0) + (cats.interference || 0)) * 0.05);
+    const pressure = { grammar: 0, vocabulary: 0, speaking: 0 };
+    Object.keys(cats).forEach((c) => { const sk = LOS.shared.errorSkill(c); if (sk in pressure) pressure[sk] += cats[c]; });
+    w.grammar *= 1 + Math.min(0.6, pressure.grammar * 0.06);
+    w.vocabulary *= 1 + Math.min(0.5, pressure.vocabulary * 0.05);
+    w.speaking *= 1 + Math.min(0.3, pressure.speaking * 0.05);
     // recent balance: over-practised skills step back, neglected ones come forward
     const totW = U.sum(Object.values(w));
     if (ctx.recentTotal > 30) U.SKILLS.forEach((s) => {

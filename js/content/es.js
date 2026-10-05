@@ -616,7 +616,7 @@
   ];
 
   LOS.lang.register({
-    code: 'es', name: 'Spanish', native: 'Español', short: 'ES', locale: 'es-ES', speech: 'es-ES', accent: 'var(--lang-es)',
+    code: 'es', // name, flag, locale… come from LOS.LANGUAGES (js/content/languages.js)
     grammar, vocab, texts, assessment, think, writing, speaking, listeningSources, checks,
     connectors: {
       A2: ['y', 'pero', 'porque', 'entonces', 'también', 'luego'],

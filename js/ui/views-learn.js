@@ -76,19 +76,7 @@
   }
 
   /* ---------------- Vocabulary ---------------- */
-  function dictCard(v, st) {
-    return `<div class="dict"><div class="between"><div><div class="dict-word">${esc(v.w)}</div><div class="dict-ipa">${v.ipa ? esc(v.ipa) : ''}${ui.speakBtn(v.w, code())}</div></div><div class="cluster"><span class="pill">${esc(v.l)}</span><span class="pill outline">${esc(LOS.shared.KIND_LABEL[v.k] || v.k)}</span></div></div>
-      ${v.pos ? `<div class="faint small mt-4">${esc(v.pos)}${v.reg && v.reg !== 'neutral' ? ' · ' + esc(v.reg) : ''}${v.d && v.d !== 'general' ? ' · ' + esc(LOS.shared.DOMAIN_LABEL[v.d] || v.d) : ''}</div>` : ''}
-      ${v.def ? `<div class="dict-sec"><div class="eyebrow">Definition</div><div class="q">${esc(v.def)}</div></div>` : ''}
-      ${v.tr ? `<div class="dict-sec"><div class="eyebrow">Italiano</div><div class="q">${esc(v.tr)}</div></div>` : ''}
-      ${v.ex ? `<div class="dict-sec"><div class="eyebrow">Example</div><div class="between"><div class="q ex">“${esc(v.ex)}”</div>${ui.speakBtn(v.ex, code())}</div></div>` : ''}
-      ${v.col && v.col.length ? `<div class="dict-sec"><div class="eyebrow">Collocations</div><div class="colls">${v.col.map((c) => `<span>${esc(c)}</span>`).join('')}</div></div>` : ''}
-      ${(v.syn && v.syn.length) || (v.ant && v.ant.length) ? `<div class="dict-sec grid grid-2">${v.syn && v.syn.length ? `<div><div class="eyebrow">Related</div><div>${esc(v.syn.join(', '))}</div></div>` : ''}${v.ant && v.ant.length ? `<div><div class="eyebrow">Opposite</div><div>${esc(v.ant.join(', '))}</div></div>` : ''}</div>` : ''}
-      ${v.ctx ? `<div class="dict-sec"><div class="eyebrow">Context</div><div class="small muted">${esc(v.ctx)}</div></div>` : ''}
-      ${v.ff ? `<div class="ff">${icon('flag', 14)} ${esc(v.ff)}</div>` : ''}
-      <div class="dict-sec grid grid-2"><div><div class="eyebrow">Level</div><div>${esc(v.l)} · frequency ${'●'.repeat(v.f || 3)}${'○'.repeat(5 - (v.f || 3))}</div></div><div><div class="eyebrow">Mastery</div>${st ? `<div class="mt-4">${ui.bar(LOS.srs.effective(st), 'thin')}</div><div class="faint xs mt-4">${LOS.learn.STAGE_LABEL[st.stage || 0]}${st.assumed ? ' (estimated)' : ''} · next ${U.relDate(st.due)}</div>` : '<div class="faint">Not introduced yet</div>'}</div></div>
-    </div>`;
-  }
+  function dictCard(v, st) { return ui.dictCard(v, code(), st); }
   function vocabStatus(st) {
     if (!st) return 'new';
     if (st.assumed) return 'known';

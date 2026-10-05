@@ -45,30 +45,30 @@
       const pname = onb.code ? ui.langName(onb.code) : 'your language';
       if (key === 'welcome') {
         body = `<div class="eyebrow">Welcome</div><h1 class="mt-8" style="font-size:40px">Let's build your<br>language profile.</h1>
-          <p class="lead mt-16">Lingua OS is a personal system for reaching C2 in English and Spanish: it measures each skill, builds a curriculum from your real gaps, plans around your shifts, and decides every day what is most worth practising.</p>
+          <p class="lead mt-16">Lingua OS is a personal system for reaching C2 in ${esc(LOS.lang.codes().map((c) => ui.langName(c)).join(', ').replace(/, ([^,]*)$/, ' and $1'))}: it measures each skill, builds a curriculum from your real gaps, plans around your shifts, and decides every day what is most worth practising.</p>
           <div class="stack mt-24 small muted" style="--gap:10px"><div class="cluster">${icon('target', 16)} Adaptive placement test per language</div><div class="cluster">${icon('calendar', 16)} Study load shaped by your work schedule</div><div class="cluster">${icon('review', 16)} Spaced repetition for grammar, vocabulary and your own errors</div><div class="cluster">${icon('medical', 16)} Medical & professional communication</div></div>
           <div class="cluster mt-32"><button class="btn primary lg" data-act="next" autofocus>Begin ${icon('arrowRight', 16)}</button><button class="btn ghost" data-act="import">${icon('upload', 15)} Restore a backup</button></div>
           <p class="faint xs mt-16">Your progress is saved in your account and synced across your devices.</p>`;
       } else if (key === 'language') {
         body = `<div class="eyebrow">Step 1</div><h2 class="mt-8">Which languages do you want to study?</h2><p class="muted mt-8">Choose one or more. Each language keeps its own level, curriculum, vocabulary, errors and statistics. The first one you pick gets the placement test now; the others can take it later.</p>
-          <div class="choice-grid mt-24">${LOS.lang.codes().map((c) => { const L = S().langs[c]; const done = L && L.onboarded; return `<button class="choice ${onb.picked.includes(c) ? 'on' : ''}" data-act="pick" data-v="${c}" aria-pressed="${onb.picked.includes(c)}" ${done ? 'disabled style="opacity:.55"' : ''}><span class="c-t">${ui.langDot(c)} ${esc(LOS.lang.get(c).name)} <span class="faint small">${esc(LOS.lang.get(c).short)}</span>${onb.picked[0] === c && onb.picked.length > 1 ? ' <span class="pill accent">first</span>' : ''}</span><span class="c-d">${done ? 'Already set up' : esc(LOS.lang.get(c).native)}</span></button>`; }).join('')}</div>
+          <div class="choice-grid mt-24">${LOS.lang.codes().map((c) => { const L = S().langs[c]; const done = L && L.onboarded; return `<button class="choice ${onb.picked.includes(c) ? 'on' : ''}" data-act="pick" data-v="${c}" aria-pressed="${onb.picked.includes(c)}" ${done ? 'disabled style="opacity:.55"' : ''}><span class="c-t">${ui.langFlag(c)} ${esc(LOS.lang.get(c).native)} <span class="faint small">${esc(LOS.lang.get(c).name)}</span>${onb.picked[0] === c && onb.picked.length > 1 ? ' <span class="pill accent">first</span>' : ''}</span><span class="c-d">${done ? 'Already set up' : esc(LOS.lang.get(c).grammarFocus || '')}</span></button>`; }).join('')}</div>
           <div class="grid grid-2 mt-24"><div class="field"><label for="o-name">Display name</label><input class="input" id="o-name" value="${esc(onb.name)}" placeholder="e.g. Luca" maxlength="80"></div>
-          <div class="field"><label for="o-native">Native language</label><select class="select" id="o-native">${[['it', 'Italiano'], ['en', 'English'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'], ['pt', 'Português'], ['other', 'Other']].map(([v, l]) => `<option value="${v}" ${onb.native === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
+          <div class="field"><label for="o-native">Native language</label><select class="select" id="o-native">${LOS.NATIVE_LANGUAGES.map(([v, l]) => `<option value="${v}" ${onb.native === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
           <div class="between mt-32">${back}<button class="btn primary" data-act="next" ${onb.picked.length ? '' : 'disabled'}>Continue ${icon('arrowRight', 16)}</button></div>`;
       } else if (key === 'level') {
         body = `<h2>What's your current level, roughly?</h2><p class="muted mt-8">Only a starting point — the test adapts from here and measures each skill separately.</p>
-          ${onb.picked.map((c) => `<div class="section"><div class="section-head"><h3>${ui.langDot(c)} ${esc(ui.langName(c))}</h3></div><div class="choice-grid">${U.LEVELS.map((l, i) => `<button class="choice ${onb.est[c] === i ? 'on' : ''}" data-act="est" data-l="${c}" data-v="${i}" aria-pressed="${onb.est[c] === i}"><span class="c-t">${l}</span><span class="c-d">${LEVEL_DESC[l]}</span></button>`).join('')}<button class="choice ${onb.est[c] === -1 ? 'on' : ''}" data-act="est" data-l="${c}" data-v="-1"><span class="c-t">Not sure</span><span class="c-d">Start in the middle.</span></button></div></div>`).join('')}
+          ${onb.picked.map((c) => `<div class="section"><div class="section-head"><h3>${ui.langFlag(c)} ${esc(ui.langName(c))}</h3></div><div class="choice-grid">${U.LEVELS.map((l, i) => `<button class="choice ${onb.est[c] === i ? 'on' : ''}" data-act="est" data-l="${c}" data-v="${i}" aria-pressed="${onb.est[c] === i}"><span class="c-t">${l}</span><span class="c-d">${LEVEL_DESC[l]}</span></button>`).join('')}<button class="choice ${onb.est[c] === -1 ? 'on' : ''}" data-act="est" data-l="${c}" data-v="-1"><span class="c-t">Not sure</span><span class="c-d">Start in the middle.</span></button></div></div>`).join('')}
           <div class="between mt-32">${back}<button class="btn primary" data-act="next" ${onb.picked.every((c) => onb.est[c] != null) ? '' : 'disabled'}>Continue ${icon('arrowRight', 16)}</button></div>`;
       } else if (key === 'test') {
         const L = LOS.store.lang(onb.code);
         const last = L.assessments[L.assessments.length - 1];
-        body = `<div class="eyebrow">${ui.langDot(onb.code)} ${esc(pname)}</div><h2 class="mt-8">Placement test</h2>
+        body = `<div class="eyebrow">${ui.langFlag(onb.code)} ${esc(pname)}</div><h2 class="mt-8">Placement test</h2>
           <p class="muted mt-8">About 15–25 minutes. It adapts to your answers and measures skills separately, so you don't restart from zero where you're already strong.</p>
           <div class="list mt-16">${LOS.assessment.SECTIONS.map((s) => `<div class="row" style="min-height:44px;padding:10px 0">${icon(s.key === 'usage' ? 'message' : s.key, 16)}<span class="grow">${esc(s.label)}</span><span class="faint small">${s.n ? s.n + ' items' : s.key === 'writing' ? '1 text' : 'checklist'}${s.needs === 'tts' && !LOS.assessment.hasTTS() ? ' · unavailable here' : ''}</span></div>`).join('')}</div>
           ${last ? ui.notice(`Test completed: overall <strong>${esc(last.overall.sub)}</strong>.`, 'checkCircle', 'accent') : ''}
           <div class="between mt-32">${back}<div class="cluster"><button class="btn ghost" data-act="skipTest">Skip — use my estimate</button>${last ? `<button class="btn primary" data-act="next">Continue ${icon('arrowRight', 16)}</button>` : `<a class="btn primary" href="#/assessment/onb">Start the test ${icon('arrowRight', 16)}</a>`}</div></div>`;
       } else if (key === 'goals') {
-        body = `<div class="eyebrow">${ui.langDot(onb.code)} ${esc(pname)}</div><h2 class="mt-8">What do you want ${esc(pname)} for?</h2><p class="muted mt-8">Goals change what the planner prioritises — e.g. "Medical" weaves clinical language into grammar, vocabulary, listening, speaking and writing.</p>
+        body = `<div class="eyebrow">${ui.langFlag(onb.code)} ${esc(pname)}</div><h2 class="mt-8">What do you want ${esc(pname)} for?</h2><p class="muted mt-8">Goals change what the planner prioritises — e.g. "Medical" weaves clinical language into grammar, vocabulary, listening, speaking and writing.</p>
           <div class="choice-grid mt-24">${LOS.shared.GOALS.map((g) => `<button class="choice ${onb.goals.includes(g.id) ? 'on' : ''}" data-act="goal" data-v="${g.id}" aria-pressed="${onb.goals.includes(g.id)}"><span class="c-t">${esc(g.label)}</span><span class="c-d">${esc(g.desc)}</span></button>`).join('')}</div>
           <div class="grid grid-2 mt-24"><div class="field"><label for="o-field">Professional field</label><input class="input" id="o-field" value="${esc(onb.field)}" placeholder="e.g. Medicine"></div><div class="field"><label for="o-spec">Specialty</label><input class="input" id="o-spec" value="${esc(onb.specialty)}" placeholder="e.g. Anaesthesiology & critical care"></div></div>
           <div class="field mt-16"><label for="o-int">Interests (comma-separated)</label><input class="input" id="o-int" value="${esc(onb.interests)}" placeholder="e.g. cycling, history, technology"></div>
@@ -92,7 +92,7 @@
         const L = LOS.store.lang(onb.code);
         const lvl = LOS.skills.calculateLevel(L);
         const studying = LOS.store.studying();
-        body = `<div class="eyebrow">${ui.langDot(onb.code)} ${esc(pname)}</div><h2 class="mt-8">Ready to generate your plan</h2>
+        body = `<div class="eyebrow">${ui.langFlag(onb.code)} ${esc(pname)}</div><h2 class="mt-8">Ready to generate your plan</h2>
           <div class="card mt-24"><div class="list">
             <div class="row"><span class="grow muted">Starting level</span><strong class="level">${lvl ? lvl.sub : '—'}</strong>${!L.assessed ? '<span class="pill warn">estimate</span>' : ''}</div>
             <div class="row"><span class="grow muted">Target</span><strong>${esc(onb.target)}${onb.targetDate ? ' · ' + U.fmtDate(onb.targetDate, { month: 'short', year: 'numeric' }) : ''}</strong></div>
@@ -207,7 +207,7 @@
       if (lastResult && lastResult.code === code) return wrap(resultHTML(lastResult.res, code, fromOnb));
       if (!draft || draft.code !== code) {
         const L = LOS.store.lang(code);
-        return wrap(`<div class="eyebrow">${ui.langDot(code)} ${esc(p.name)}</div><h1 class="mt-8">Placement test</h1><p class="lead mt-16">Grammar, vocabulary, reading, natural use & register, listening, a short writing sample and a speaking self-assessment. Questions adapt to your answers — it's normal to find some very hard.</p>
+        return wrap(`<div class="eyebrow">${ui.langFlag(code)} ${esc(p.name)}</div><h1 class="mt-8">Placement test</h1><p class="lead mt-16">Grammar, vocabulary, reading, natural use & register, listening, a short writing sample and a speaking self-assessment. Questions adapt to your answers — it's normal to find some very hard.</p>
           <div class="list mt-24">${LOS.assessment.SECTIONS.map((s) => `<div class="row" style="min-height:44px;padding:10px 0">${icon(s.key === 'usage' ? 'message' : s.key, 16)}<span class="grow">${esc(s.label)}</span><span class="faint small">${esc(s.desc)}</span></div>`).join('')}</div>
           ${L.assessments.length ? ui.notice(`Previous result: ${esc(L.assessments[L.assessments.length - 1].overall.sub)} on ${U.fmtDate(L.assessments[L.assessments.length - 1].date)}. Retaking updates your skill profile; your learning history is kept.`, 'info') : ''}
           <div class="cluster mt-32"><button class="btn primary lg" data-act="begin" autofocus>Start ${icon('arrowRight', 16)}</button>${fromOnb ? '' : '<a class="btn ghost" href="#/progress">Cancel</a>'}</div>`);
@@ -275,7 +275,7 @@
   function resultHTML(r, code, fromOnb) {
     const subs = [['register', 'Register'], ['naturalness', 'Naturalness'], ['complexity', 'Complexity'], ['abstract', 'Abstract ideas (C1+ items)'], ['fluency', 'Fluency (self-reported)']].filter(([k]) => r.sub[k] != null);
     const lbl = (k) => U.SKILL_LABEL[k];
-    return `<div class="eyebrow">${ui.langDot(code)} ${esc(ui.langName(code))} · language profile</div>
+    return `<div class="eyebrow">${ui.langFlag(code)} ${esc(ui.langName(code))} · language profile</div>
       <h1 class="mt-8">Overall <span class="level">${esc(r.overall.sub)}</span></h1>
       <p class="muted mt-8">Derived from the skill profile (≥ two-thirds of skills at a level, none more than one level below) — not a simple average.</p>
       <table class="profile-table mt-24"><thead><tr><th>Skill</th><th>Level</th><th>Score</th><th class="barcell"></th></tr></thead><tbody>
@@ -303,10 +303,10 @@
       const langsHTML = LOS.lang.codes().map((c) => {
         const L = st.langs[c];
         const p = LOS.lang.get(c);
-        if (!L || !L.onboarded) return `<div class="row"><span class="grow">${ui.langDot(c)} ${esc(p.name)}</span><a class="btn sm" href="#/welcome/${c}">Set up</a></div>`;
+        if (!L || !L.onboarded) return `<div class="row"><span class="grow">${ui.langFlag(c)} ${esc(p.name)}</span><a class="btn sm" href="#/welcome/${c}">Set up</a></div>`;
         const voices = LOS.speech.voicesFor(c);
         const tts = st.settings.tts[c] || {};
-        return `<div class="card flat mt-12"><div class="between"><strong>${ui.langDot(c)} ${esc(p.name)}</strong><label class="check small"><input type="checkbox" data-l="${c}" data-k="enabled" ${L.enabled ? 'checked' : ''}> Studying</label></div>
+        return `<div class="card flat mt-12"><div class="between"><strong>${ui.langFlag(c)} ${esc(p.name)}</strong><label class="check small"><input type="checkbox" data-l="${c}" data-k="enabled" ${L.enabled ? 'checked' : ''}> Studying</label></div>
           <div class="form-grid mt-16">
             <div class="field"><label>Target level</label><select class="select" data-l="${c}" data-k="targetLevel">${U.LEVELS.map((l) => `<option ${L.targetLevel === l ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
             <div class="field"><label>Target date</label><input class="input" type="date" data-l="${c}" data-k="targetDate" value="${esc(L.targetDate)}"></div>
@@ -328,7 +328,7 @@
           </div></div>
         <div class="section"><div class="section-head"><h2>Profile</h2></div>
           <div class="form-grid"><div class="field"><label for="s-name">Name</label><input class="input" id="s-name" data-p="name" value="${esc(st.profile.name)}"></div>
-          <div class="field"><label for="s-native">Native language</label><select class="select" id="s-native" data-p="native">${[['it', 'Italiano'], ['en', 'English'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'], ['pt', 'Português'], ['other', 'Other']].map(([v, l]) => `<option value="${v}" ${(st.profile.native || 'it') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+          <div class="field"><label for="s-native">Native language</label><select class="select" id="s-native" data-p="native">${LOS.NATIVE_LANGUAGES.map(([v, l]) => `<option value="${v}" ${(st.profile.native || 'it') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
           <div class="field"><label for="s-field">Professional field</label><input class="input" id="s-field" data-p="field" value="${esc(st.profile.field)}"></div>
           <div class="field"><label for="s-spec">Specialty</label><input class="input" id="s-spec" data-p="specialty" value="${esc(st.profile.specialty)}"></div></div>
           <div class="field mt-16"><label for="s-int">Interests</label><input class="input" id="s-int" data-p="interests" value="${esc((st.profile.interests || []).join(', '))}"></div>
@@ -393,7 +393,7 @@ Any error or timeout falls back to the local implementation.</pre></details>
         theme(el) { LOS.app.setTheme(el.dataset.v); LOS.app.refresh(); },
         ai(el) { st.settings.ai.provider = el.dataset.v; save(); LOS.app.refresh(); },
         goal(el) { const L = st.langs[el.dataset.l]; const g = el.dataset.v; L.goals = L.goals.includes(g) ? L.goals.filter((x) => x !== g) : L.goals.concat([g]); save(); LOS.app.refresh(); },
-        testVoice(el) { const c = el.dataset.l; LOS.speech.speak(c === 'es' ? 'Hola, soy tu voz para practicar español.' : 'Hello, this is the voice you will hear in listening practice.', c); },
+        testVoice(el) { const c = el.dataset.l; LOS.speech.speak(LOS.lang.get(c).voiceSample || ui.langNative(c), c); },
         retake(el, e) { e.preventDefault(); LOS.store.setActive(el.dataset.l); location.hash = '#/assessment'; },
         async resetLang(el) {
           const c = el.dataset.l;

@@ -75,9 +75,9 @@
     const informalFound = findPhrases(textNorm, pack.informal);
     if (reg === 'formal') {
       const contr = pack.contractions ? (raw.match(pack.contractions) || []) : [];
-      if (contr.length) regIssues.push({ cat: 'register', label: 'Register', why: `Contractions in a formal text (${U.esc(contr.slice(0, 3).join(', '))}). Use full forms: do not, it is, we will.`, count: contr.length });
+      if (contr.length) regIssues.push({ cat: 'register', label: 'Register', why: ((pack.registerNotes || {}).contractions || 'Contractions in a formal text ({x}).').replace('{x}', contr.slice(0, 3).join(', ')), count: contr.length });
       if (informalFound.length) regIssues.push({ cat: 'register', label: 'Register', why: `Informal words in a formal text: ${informalFound.join(', ')}.`, count: informalFound.length });
-      if (pack.tuFormal) { const tu = raw.match(pack.tuFormal) || []; if (tu.length >= 2) regIssues.push({ cat: 'register', label: 'Register', why: 'Forms of "tú" in a formal text — consider "usted" (le, su, puede, tiene).', count: tu.length }); }
+      if (pack.tuFormal) { const tu = raw.match(pack.tuFormal) || []; if (tu.length >= 2) regIssues.push({ cat: 'register', label: 'Register', why: (pack.registerNotes || {}).formalYou || 'Informal "you" in a formal text.', count: tu.length }); }
     } else if (reg === 'neutral' && informalFound.length > 1) {
       regIssues.push({ cat: 'register', label: 'Register', why: `Quite informal: ${informalFound.join(', ')}.`, count: informalFound.length });
     }

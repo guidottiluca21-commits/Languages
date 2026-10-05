@@ -43,8 +43,35 @@
       const [c, l] = map[status] || map.new;
       return `<span class="pill ${c}">${l}</span>`;
     },
-    langDot(code) { return `<span class="lang-dot ${esc(code)}" aria-hidden="true"></span>`; },
+    /** Full dictionary card for a vocabulary item (all languages; shows gender/plural/case when the language has them). */
+    dictCard(v, code, st, opts = {}) {
+      const G = { m: 'masculine', f: 'feminine', n: 'neuter' };
+      const list = (x) => (Array.isArray(x) ? x : x ? [x] : []);
+      const sec = (label, html) => `<div class="dict-sec"><div class="eyebrow">${label}</div>${html}</div>`;
+      const pills = `<span class="pill">${esc(v.l)}</span><span class="pill outline">${esc(LOS.shared.KIND_LABEL[v.k] || v.k)}</span>${v.d && v.d !== 'general' ? `<span class="pill accent">${esc(LOS.shared.DOMAIN_LABEL[v.d] || v.d)}</span>` : ''}`;
+      const gram = [v.pos, v.g ? G[v.g] || v.g : '', v.reg && v.reg !== 'neutral' ? v.reg : ''].filter(Boolean).join(' · ');
+      return `<div class="dict">
+        <div class="between"><div><div class="dict-word">${esc(v.w)}${v.pl ? `<span class="dict-pl"> — ${esc(v.pl)}</span>` : ''}</div>
+          <div class="dict-ipa">${v.ipa ? esc(v.ipa) : ''}${v.stress ? ` <span class="faint">· ${esc(v.stress)}</span>` : ''}${ui.speakBtn(v.w, code)}</div></div><div class="cluster">${pills}</div></div>
+        ${gram ? `<div class="faint small mt-4">${esc(gram)}</div>` : ''}
+        ${v.cas ? `<div class="small mt-4"><span class="pill outline">${esc(v.cas)}</span></div>` : ''}
+        ${v.def ? sec('Definition', `<div class="q">${esc(v.def)}</div>`) : ''}
+        ${v.tr ? sec('Italiano', `<div class="q">${esc(v.tr)}</div>`) : ''}
+        ${v.ex ? sec('Example', `<div class="between"><div class="q ex">“${esc(v.ex)}”</div>${ui.speakBtn(v.ex, code)}</div>`) : ''}
+        ${list(v.col).length ? sec('Collocations', `<div class="colls">${list(v.col).map((c) => `<span>${esc(c)}</span>`).join('')}</div>`) : ''}
+        ${list(v.syn).length || list(v.ant).length ? `<div class="dict-sec grid grid-2">${list(v.syn).length ? `<div><div class="eyebrow">Synonyms</div><div>${esc(list(v.syn).join(', '))}</div></div>` : ''}${list(v.ant).length ? `<div><div class="eyebrow">Opposite</div><div>${esc(list(v.ant).join(', '))}</div></div>` : ''}</div>` : ''}
+        ${list(v.rel).length ? sec('Related words', `<div>${esc(list(v.rel).join(', '))}</div>`) : ''}
+        ${v.pnote ? sec('Pronunciation', `<div class="small muted">${esc(v.pnote)}</div>`) : ''}
+        ${v.ctx ? sec('Usage', `<div class="small muted">${esc(v.ctx)}</div>`) : ''}
+        ${list(v.mist).map((m) => `<div class="ff">${icon('errors', 14)} ${esc(m)}</div>`).join('')}
+        ${v.ff ? `<div class="ff">${icon('flag', 14)} ${esc(v.ff)}</div>` : ''}
+        ${opts.mastery === false ? '' : `<div class="dict-sec grid grid-2"><div><div class="eyebrow">Level</div><div>${esc(v.l)} · frequency ${'●'.repeat(v.f || 3)}${'○'.repeat(5 - (v.f || 3))}</div></div><div><div class="eyebrow">Mastery</div>${st ? `<div class="mt-4">${ui.bar(LOS.srs.effective(st), 'thin')}</div><div class="faint xs mt-4">${LOS.learn.STAGE_LABEL[st.stage || 0]}${st.assumed ? ' (estimated)' : ''} · next ${U.relDate(st.due)}</div>` : '<div class="faint">Not introduced yet</div>'}</div></div>`}
+      </div>`;
+    },
+    langDot(code) { const p = LOS.lang.get(code); return `<span class="lang-dot" style="background:${esc((p && p.color) || 'var(--text-3)')}" aria-hidden="true"></span>`; },
+    langFlag(code) { const p = LOS.lang.get(code); return `<span class="flag" aria-hidden="true">${(p && p.flag) || '🌐'}</span>`; },
     langName(code) { const p = LOS.lang.get(code); return p ? p.name : code; },
+    langNative(code) { const p = LOS.lang.get(code); return p ? p.native : code; },
     empty({ icon: ic = 'sparkle', title, text, action = '' }) {
       return `<div class="empty">${icon(ic, 28)}<h3>${esc(title)}</h3>${text ? `<p class="muted small" style="max-width:46ch">${text}</p>` : ''}${action ? `<div class="mt-8">${action}</div>` : ''}</div>`;
     },

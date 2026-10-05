@@ -10,18 +10,23 @@
   /* ------------------------------------------------------------------ *
    * Answer checking
    * ------------------------------------------------------------------ */
-  function checkAnswer(ex, input) {
+  function checkAnswer(ex, input, code) {
     if (ex.t === 'mc') {
       const correct = Number(input) === ex.a;
       return { correct, close: false, expected: ex.o[ex.a] };
     }
-    const given = U.norm(input);
-    const answers = ex.a.map(U.norm);
+    const pack = LOS.lang.get(code || LOS.store.active()) || {};
+    const given = U.norm(input).replace(/ß/g, 'ss');
+    const answers = ex.a.map((a) => U.norm(a).replace(/ß/g, 'ss'));
     if (answers.includes(given)) return { correct: true, close: false, expected: ex.a[0] };
-    // accents missing (e.g. "esta" for "está") → accepted, flagged
+    // a noun learnt without its article (German/French/Spanish): the article is part of the word
+    const arts = pack.articles || [];
+    const bare = answers.find((a) => { const m = a.split(' '); return m.length > 1 && arts.includes(m[0]) && m.slice(1).join(' ') === given; });
+    if (bare) return { correct: false, close: false, note: `Learn the noun with its article: ${ex.a[answers.indexOf(bare)]}.`, expected: ex.a[answers.indexOf(bare)] };
+    // accents/umlauts missing (e.g. "esta" for "está", "schon" for "schön") → accepted, flagged
     const ga = U.stripAccents(given);
     const hit = answers.find((a) => U.stripAccents(a) === ga);
-    if (hit) return { correct: true, close: true, note: 'Check the accents.', expected: ex.a[answers.indexOf(hit)] };
+    if (hit) return { correct: true, close: true, note: pack.accentNote || 'Check the accents.', expected: ex.a[answers.indexOf(hit)] };
     // small typo tolerance on longer answers
     let best = null;
     answers.forEach((a, i) => {
@@ -132,7 +137,7 @@
       return ex;
     }
     answer(ex, input) {
-      const res = checkAnswer(ex, input);
+      const res = checkAnswer(ex, input, this.code);
       const lang = L(this.code);
       this.results.push({ correct: res.correct, close: res.close, d: ex.d || 1 });
       this.state.attempts = (this.state.attempts || 0) + 1;
@@ -147,7 +152,7 @@
         if (this.badRun >= 2 && this.d > 1) { this.d--; this.events.push('down'); res.adapt = 'down'; }
         if (!ex._retried) { ex._retried = true; this.retry.push({ ex, after: this.results.length + 2 }); }
         recordError(this.code, {
-          src: 'grammar', cat: 'grammar', label: this.topic.cat + ' · ' + this.topic.title, topic: this.topic.id,
+          src: 'grammar', cat: this.topic.ecat || 'grammar', label: this.topic.cat + ' · ' + this.topic.title, topic: this.topic.id,
           wrong: sentenceFor(ex, input), right: ex.t === 'mc' ? sentenceFor(ex, ex.a) : sentenceFor(ex, res.expected), note: ex.w || '',
         });
       }
