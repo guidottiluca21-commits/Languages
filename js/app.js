@@ -207,6 +207,8 @@
   function closeLangMenu(btn) { btn.setAttribute('aria-expanded', 'false'); if (btn.nextElementSibling) btn.nextElementSibling.hidden = true; }
 
   function wireGlobals() {
+    // any language switch (selector, dashboard card, settings) refreshes the current view with that language's data
+    LOS.bus.on('lang-changed', () => { if (phase === 'app' && current && !['session', 'practice', 'assessment'].includes(current.name)) render({ keepScroll: true }); });
     window.addEventListener('hashchange', () => render());
     document.addEventListener('click', (e) => {
       const trig = e.target.closest('[data-lang-menu]');
@@ -219,7 +221,7 @@
         LOS.store.setActive(c);
         const n = current && current.name;
         if (['session', 'practice', 'assessment'].includes(n) || (current && current.params.length && ['grammar', 'medical', 'professional'].includes(n))) location.hash = '#/' + (n === 'grammar' ? 'grammar' : n === 'medical' || n === 'professional' ? n : 'dashboard');
-        else render({ keepScroll: true });
+        // otherwise the 'lang-changed' listener re-renders the current view for the new language
         return;
       }
       if (e.target.closest('[data-drawer]')) { openDrawer(); return; }

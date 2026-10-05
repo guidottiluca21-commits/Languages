@@ -97,7 +97,20 @@
       situational: { label: 'Situational thinking', secs: 45, desc: 'React to a real-life situation.' },
       monologue: { label: 'Internal monologue', secs: 60, desc: 'Do this silently in your head, in the target language.' },
       conceptual: { label: 'Conceptual thinking', secs: 90, desc: 'Reason about an abstract idea directly in the language.' },
+      opinion: { label: 'Give your opinion', secs: 60, desc: 'Take a position and justify it — in the language, from the first word.' },
+      defend: { label: 'Defend an argument', secs: 90, desc: 'Argue for a thesis (even one you disagree with) and handle the objection.' },
+      spontaneous: { label: 'React spontaneously', secs: 30, desc: 'Something unexpected happens. React at once — no preparation.' },
     },
+    /* "Think in the language" ladder: each step removes more support. The step follows the CEFR level of the language. */
+    THINK_LADDER: [
+      { n: 1, label: 'Describe what you see', types: ['describe', 'rapid'], from: 'A1' },
+      { n: 2, label: 'Explain what happened', types: ['explain', 'situational', 'monologue'], from: 'A2' },
+      { n: 3, label: 'Give your opinion', types: ['opinion', 'paraphrase', 'reformulate'], from: 'B1' },
+      { n: 4, label: 'Defend an argument', types: ['defend', 'reformulate', 'synonym'], from: 'B2' },
+      { n: 5, label: 'Discuss an abstract concept', types: ['conceptual', 'synonym'], from: 'C1' },
+      { n: 6, label: 'React spontaneously to the unexpected', types: ['spontaneous', 'monologue'], from: 'C2' },
+    ],
+    thinkStep(levelIdx) { const L = LOS.shared.THINK_LADDER; return L[Math.max(0, Math.min(L.length - 1, levelIdx))]; },
     /* Calibrated words-per-minute bands for spontaneous speech (rough, learner-oriented). */
     WPM: { A1: [40, 70], A2: [55, 85], B1: [75, 105], B2: [95, 130], C1: [115, 150], C2: [125, 170] },
     /* CEFR-based "can do" descriptors (paraphrased). Used for speaking self-assessment and competence gains. */
@@ -176,6 +189,8 @@
       ['complexity', 'Complexity', 'Varied structures, subordinate clauses.'],
       ['coherence', 'Coherence', 'Clear structure, linked ideas.'],
       ['naturalness', 'Naturalness', 'Sounds like a competent user, not a translation.'],
+      ['hesitation', 'Few hesitations', 'Few fillers, false starts and long searches for words.'],
+      ['register', 'Register', 'Formality right for the listener (du/Sie, tu/vous, tú/usted…).'],
     ],
     WRITING_DIMENSIONS: [
       ['grammar', 'Grammar'], ['vocabulary', 'Vocabulary'], ['syntax', 'Syntax'], ['coherence', 'Coherence'],

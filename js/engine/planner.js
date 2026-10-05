@@ -96,23 +96,26 @@
     if (!ses.length) return 30;
     return Math.max(0, U.diffDays(ses[ses.length - 1].date, date));
   }
+  /** Share the day's budget between languages. Never more languages than the time allows (≥ ~12 min each):
+   * on short days the languages that most need it today get the time, the others rotate in on the next days. */
   function splitLanguages(date, minutes) {
     const codes = LOS.store.studying();
     if (!codes.length || !minutes) return [];
     const w = S().settings.langWeights;
     const weight = (c) => Math.max(1, w[c] == null ? 50 : w[c]);
     if (codes.length === 1) return [{ code: codes[0], minutes }];
-    if (minutes < 25) {
-      const due = (c) => LOS.learn.dueVocab(c, date).length + LOS.learn.dueErrorCards(c, date).length;
-      const need = (c) => weight(c) * (1 + daysSinceStudied(c, date) * 0.5) * (1 + due(c) / 60);
-      const best = codes.slice().sort((a, b) => need(b) - need(a))[0];
-      return [{ code: best, minutes }];
-    }
-    const tot = U.sum(codes.map(weight));
-    let parts = codes.map((c) => ({ code: c, minutes: Math.max(10, Math.round((minutes * weight(c)) / tot / 5) * 5) }));
-    const diff = minutes - U.sum(parts.map((p) => p.minutes));
-    parts.sort((a, b) => weight(b.code) - weight(a.code));
-    parts[0].minutes = Math.max(10, parts[0].minutes + diff);
+    const due = (c) => LOS.learn.dueVocab(c, date).length + LOS.learn.dueErrorCards(c, date).length;
+    const need = (c) => weight(c) * (1 + daysSinceStudied(c, date) * 0.5) * (1 + due(c) / 60);
+    const maxLangs = minutes < 25 ? 1 : Math.max(1, Math.min(codes.length, Math.floor(minutes / 12)));
+    const chosen = codes.slice().sort((a, b) => need(b) - need(a)).slice(0, maxLangs);
+    if (chosen.length === 1) return [{ code: chosen[0], minutes }];
+    const tot = U.sum(chosen.map(weight));
+    const parts = chosen.map((c) => ({ code: c, minutes: Math.max(10, Math.round((minutes * weight(c)) / tot / 5) * 5) }));
+    // keep the total exactly on budget: trim or extend the largest share
+    let diff = minutes - U.sum(parts.map((p) => p.minutes));
+    parts.sort((a, b) => b.minutes - a.minutes);
+    while (diff < 0 && parts.some((p) => p.minutes > 10)) { const p = parts.find((x) => x.minutes > 10); const d = Math.min(-diff, p.minutes - 10); p.minutes -= d; diff += d; parts.sort((a, b) => b.minutes - a.minutes); }
+    if (diff > 0) parts[0].minutes += diff;
     const active = LOS.store.active();
     return parts.sort((a, b) => (a.code === active ? -1 : b.code === active ? 1 : 0));
   }

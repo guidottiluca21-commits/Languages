@@ -1,7 +1,15 @@
-/* Browser E2E: every learning activity runs to completion while signed in (mock Supabase backend). */
+/* Browser E2E: every learning activity runs to completion while signed in (mock Supabase backend).
+ * LANG=en|es|de|fr selects the language (default en). */
 const { chromium } = require(process.env.PW || '/opt/node22/lib/node_modules/playwright');
 const SHOTS = process.env.SHOTS || '/tmp/shots/';
 const URL = 'http://localhost:5180/';
+const L = process.env.LANG_CODE || 'en';
+const ROUTES = {
+  en: ['practice/grammar/en-cond-3/learn', 'practice/reading/en-t-b2-4day', 'practice/listening/en-t-b1-wfh', 'practice/writing/en-w-b2-essay', 'practice/speaking/en-s-b2-explain', 'practice/scenario/en-med-handover/0', 'practice/scenario/en-pro-emails/0'],
+  es: ['practice/grammar/es-cond-3/learn', 'practice/reading/es-t-b1-sueno', 'practice/listening/es-t-b1-teletrabajo', 'practice/writing/es-w-b2-ensayo', 'practice/speaking/es-s-b2-explicar', 'practice/scenario/es-med-pase/0', 'practice/scenario/es-pro-correos/0'],
+  de: ['practice/grammar/de-adjektiv/learn', 'practice/reading/de-t-b2-antibiotika', 'practice/listening/de-t-b1-homeoffice', 'practice/writing/de-w-b2-eroerterung', 'practice/speaking/de-s-b2-team', 'practice/scenario/de-med-uebergabe/0', 'practice/scenario/de-pro-mails/0'],
+  fr: ['practice/grammar/fr-subjonctif/learn', 'practice/reading/fr-t-b2-antibiotiques', 'practice/listening/fr-t-b1-teletravail', 'practice/writing/fr-w-b2-essai', 'practice/speaking/fr-s-b2-equipe', 'practice/scenario/fr-med-transmissions/0', 'practice/scenario/fr-pro-courriels/0'],
+};
 const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8');
 (async () => {
   const browser = await chromium.launch();
@@ -14,9 +22,9 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
   page.on('dialog', d => d.accept());
   await page.goto(URL);
   await page.waitForSelector('#email'); await page.click('text=Crea un account'); await page.waitForSelector('text=Crea il tuo account');
-  await page.fill('#email', 'learner@example.com'); await page.fill('#pw', 'Zmqxkw2026tt'); await page.fill('#pw2', 'Zmqxkw2026tt'); await page.click('button[type=submit]');
-  await page.click('text=Begin'); await page.click('button.choice[data-v="en"]'); await page.click('button[data-act="next"]');
-  await page.click('button[data-act="est"][data-l="en"][data-v="3"]'); await page.click('button[data-act="next"]');
+  await page.fill('#email', `learner-${L}@example.com`); await page.fill('#pw', 'Zmqxkw2026tt'); await page.fill('#pw2', 'Zmqxkw2026tt'); await page.click('button[type=submit]');
+  await page.click('text=Begin'); await page.click(`button.choice[data-v="${L}"]`); await page.click('button[data-act="next"]');
+  await page.click(`button[data-act="est"][data-l="${L}"][data-v="3"]`); await page.click('button[data-act="next"]');
   await page.click('button[data-act="skipTest"]');
   await page.click('button.choice[data-v="medical"]'); await page.click('button[data-act="next"]');
   await page.click('button[data-act="next"]'); await page.click('button[data-act="next"]'); await page.click('button[data-act="generate"]');
@@ -41,7 +49,8 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
     }
     return 'maxed';
   }
-  const routes = ['practice/grammar/en-cond-3/learn', 'practice/vocab/new', 'practice/review/all', 'practice/reading/en-t-b2-4day', 'practice/listening/en-t-b1-wfh', 'practice/listening/external', 'practice/writing/en-w-b2-essay', 'practice/speaking/en-s-b2-explain', 'practice/think/mix', 'practice/scenario/en-med-handover/0', 'practice/scenario/en-pro-emails/0'];
+  const R = ROUTES[L];
+  const routes = [R[0], 'practice/vocab/new', 'practice/review/all', R[1], R[2], 'practice/listening/external', R[3], R[4], 'practice/think/mix', R[5], R[6]];
   for (const r of routes) { await page.goto(URL + '#/' + r); await page.waitForTimeout(200); console.log(r, await drive(r.replace(/\//g, '_'))); }
   // today session from plan
   await page.goto(URL + '#/today'); await page.waitForTimeout(200);

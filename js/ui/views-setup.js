@@ -273,7 +273,7 @@
   };
 
   function resultHTML(r, code, fromOnb) {
-    const subs = [['register', 'Register'], ['naturalness', 'Naturalness'], ['complexity', 'Complexity'], ['abstract', 'Abstract ideas (C1+ items)'], ['fluency', 'Fluency (self-reported)']].filter(([k]) => r.sub[k] != null);
+    const subs = [['comprehension', 'Comprehension (reading + listening)'], ['register', 'Register'], ['naturalness', 'Naturalness'], ['complexity', 'Complexity'], ['abstract', 'Abstract ideas (C1+ items)'], ['fluency', 'Fluency (self-reported)']].filter(([k]) => r.sub[k] != null);
     const lbl = (k) => U.SKILL_LABEL[k];
     return `<div class="eyebrow">${ui.langFlag(code)} ${esc(ui.langName(code))} · language profile</div>
       <h1 class="mt-8">Overall <span class="level">${esc(r.overall.sub)}</span></h1>

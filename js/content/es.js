@@ -190,7 +190,8 @@
       explain: ['había, habías, había… + participio.', 'Cuando llegamos, la reunión ya había empezado.'],
       ex: ['El paciente nos dijo que había tomado la medicación.'],
       use: 'Cuenta un caso clínico con el pluscuamperfecto.',
-      x: [gap('Cuando llegamos, la reunión ya ___ (empezar).', 'había empezado', 1, 'Anterioridad.'), gap('El paciente nos dijo que ___ (tomar) la medicación.', 'había tomado', 2, 'Anterior al momento de decirlo.', M)] },
+      x: [gap('Cuando llegamos, la reunión ya ___ (empezar).', 'había empezado', 1, 'Anterioridad.'), gap('El paciente nos dijo que ___ (tomar) la medicación.', 'había tomado', 2, 'Anterior al momento de decirlo.', M),
+        fix('Cuando llegó la ambulancia, el paciente ya ha perdido el conocimiento.', ['Cuando llegó la ambulancia, el paciente ya había perdido el conocimiento.'], 2, 'Anterioridad en el pasado → pluscuamperfecto.', M)] },
     { id: 'es-imp-subj', l: 'B2', cat: 'Modo', title: 'Imperfecto de subjuntivo', sum: 'Me pidió que…, si tuviera…', pre: ['es-subj-presente'],
       explain: ['Raíz de la 3.ª plural del indefinido (tuvieron → tuvie-) + -ra/-se: tuviera / tuviese.', 'Tras verbos en pasado o condicional: Me pidió que llamara. Me gustaría que vinieras.', 'Condicionales irreales: Si tuviera tiempo…'],
       ex: ['Me pidió que llamara al anestesista.', 'Si tuviera más tiempo, estudiaría más.'],
@@ -282,7 +283,8 @@
       ex: ['El aumento de los precios provocó una disminución del consumo.'],
       use: 'Reescribe un párrafo de tus notas en estilo nominal.',
       x: [tr('El paciente empeoró rápidamente, y esto sorprendió al equipo.', 'El rápido', ['El rápido empeoramiento del paciente sorprendió al equipo.'], 2, 'empeorar → empeoramiento.', M),
-        mc('¿Cuál es más formal?', ['Como los precios subieron, la gente compró menos.', 'El aumento de los precios provocó una disminución del consumo.'], 1, 1, 'Estilo nominal.')] },
+        mc('¿Cuál es más formal?', ['Como los precios subieron, la gente compró menos.', 'El aumento de los precios provocó una disminución del consumo.'], 1, 1, 'Estilo nominal.'),
+        gap('administrar → la ___ de antibióticos', 'administración', 1, '-ción.', M), gap('disminuir → la ___ de la tensión arterial', 'disminución', 2, '-ción.', M)] },
 
     /* ---------------- C2 ---------------- */
     { id: 'es-perifrasis-av', l: 'C2', cat: 'Perífrasis', title: 'Perífrasis aspectuales avanzadas', sum: 'venir/andar/ir + gerundio, llegar a, estar por.', pre: ['es-perifrasis-2'],
@@ -319,7 +321,8 @@
       explain: ['Casi desaparecido del habla: hubiere, fuere, hiciere.', 'Se conserva en refranes (Adonde fueres, haz lo que vieres) y textos legales.', 'Equivale hoy al presente de subjuntivo.'],
       ex: ['Sea cual fuere el resultado…'],
       use: 'Encuentra un ejemplo en un texto legal o un refrán.',
-      x: [mc('"Adonde fueres, haz lo que vieres" usa…', ['futuro de subjuntivo', 'imperfecto de subjuntivo', 'futuro simple'], 0, 1, 'Futuro de subjuntivo.'), mc('En un texto legal, "el que incumpliere" equivale a…', ['el que incumpla', 'el que incumplió', 'el que incumplirá'], 0, 2, 'Presente de subjuntivo.')] },
+      x: [mc('"Adonde fueres, haz lo que vieres" usa…', ['futuro de subjuntivo', 'imperfecto de subjuntivo', 'futuro simple'], 0, 1, 'Futuro de subjuntivo.'), mc('En un texto legal, "el que incumpliere" equivale a…', ['el que incumpla', 'el que incumplió', 'el que incumplirá'], 0, 2, 'Presente de subjuntivo.'),
+        mc('"Sea cual fuere el resultado" hoy se diría normalmente:', ['Sea cual sea el resultado', 'Sea cual era el resultado', 'Fuera cual fue el resultado'], 0, 2, 'Futuro de subjuntivo → presente de subjuntivo.')] },
   ];
 
   /* ---------------- vocabulary ---------------- */
@@ -530,6 +533,12 @@
     { type: 'conceptual', l: 'B2', p: '¿Qué hace que un equipo funcione bien? Razónalo en español.', keys: ['confianza', 'comunicación', 'roles', 'retroalimentación'] },
     { type: 'conceptual', l: 'C1', p: '¿Es lícito ocultar información a un paciente? Argumenta ambas posturas.', keys: ['autonomía', 'daño', 'por otro lado', 'depende'] },
     { type: 'conceptual', l: 'C2', p: '¿Es lo mismo fluidez que competencia? Explora la ambigüedad de la pregunta.', keys: ['cabría argumentar', 'depende de', 'confundir', 'matiz'] },
+    { type: 'opinion', l: 'B1', p: '¿Debería el personal del hospital llevar una tarjeta con su nombre? Da tu opinión con una razón.', keys: ['creo que', 'porque', 'además', 'por eso'] },
+    { type: 'opinion', l: 'B2', p: '¿Es bueno el teletrabajo para el trabajo en equipo? Da tu opinión.', keys: ['a mi juicio', 'por un lado', 'por otro', 'en general'] },
+    { type: 'defend', l: 'B2', p: 'Defiende esta tesis aunque no la compartas: "Los médicos deberían repetir un examen cada cinco años."', keys: ['lo importante es', 'por ejemplo', 'se podría objetar', 'aun así'] },
+    { type: 'defend', l: 'C1', p: 'Un compañero dice: "Los pases de guardia estructurados son una pérdida de tiempo." Rebátelo con dos argumentos.', keys: ['no estoy de acuerdo', 'los estudios muestran', 'precisamente', 'al fin y al cabo'] },
+    { type: 'spontaneous', l: 'C1', p: 'En mitad de tu presentación se apaga el proyector. Reacciona y sigue.', model: 'Bueno, parece que la tecnología no está de nuestra parte. No pasa nada: os cuento lo que había en la diapositiva y os imagináis el gráfico.' },
+    { type: 'spontaneous', l: 'C2', p: 'En una reunión, un familiar levanta la voz de repente y acusa al equipo. Reacciona en el momento.', model: 'Entiendo lo duro que es esto para usted, y es completamente comprensible. Vamos a repasar con calma lo que ha pasado, punto por punto; tengo todo el tiempo que necesite.' },
   ];
 
   const writing = [
@@ -584,7 +593,7 @@
     { id: 'gender', re: /\b(la problema|la tema|la sistema|la síntoma|la programa|la día|el mano|el leche|el sangre|el nariz|el señal|la dolor|la origen|el costumbre|la color|el sal|el miel|la análisis|el radiografía)\b/gi, cat: 'grammar', label: 'Género', fix: (m) => ({ 'la problema': 'el problema', 'la tema': 'el tema', 'la sistema': 'el sistema', 'la síntoma': 'el síntoma', 'la programa': 'el programa', 'la día': 'el día', 'el mano': 'la mano', 'el leche': 'la leche', 'el sangre': 'la sangre', 'el nariz': 'la nariz', 'el señal': 'la señal', 'la dolor': 'el dolor', 'la origen': 'el origen', 'el costumbre': 'la costumbre', 'la color': 'el color', 'el sal': 'la sal', 'el miel': 'la miel', 'la análisis': 'el análisis', 'el radiografía': 'la radiografía' }[m.toLowerCase()] || m), why: 'Género distinto del italiano.', topic: 'es-gender' },
     { id: 'subj-trigger', re: /\b(es (?:importante|necesario|fundamental|mejor|posible|probable|normal|raro)|quiero|quieres|espero|esperamos|ojalá|dudo|no creo|no pienso|para|antes de|me alegra|te recomiendo|le recomiendo|recomiendo|sugiero|pido) que (\w+ )?(tiene|tienes|tienen|es|eres|son|está|estás|están|hace|haces|hacen|va|vas|van|puede|puedes|pueden|sabe|sabes|hay|viene|vienes|dice|funciona|llega|llegas)(?![\wÀ-ÿ])/gi, cat: 'grammar', label: 'Subjuntivo', fix: (m, t, mid, v) => `${t} que ${mid || ''}${SUBJ[v.toLowerCase()] || v}`, why: 'Tras expresiones de deseo, valoración, duda o finalidad → subjuntivo.', topic: 'es-subj-presente' },
     { id: 'cuando-futuro', re: /\b(cuando|en cuanto|hasta que|tan pronto como) (\w+ )?(tendré|tendrás|tendrá|seré|será|podré|podrá|iré|irá|llegaré|llegará|terminaré|terminará|acabaré|estaré|estará|sabré|haré|volveré)(?![\wÀ-ÿ])/gi, cat: 'interference', label: 'Subjuntivo', fix: null, why: 'Cuando + futuro → presente de subjuntivo (cuando tenga, cuando llegue). Interferencia del italiano "quando avrò".', topic: 'es-subj-adverbial' },
-    { id: 'si-cond', re: /\bsi (\w+ )?(tendría|sería|podría|estaría|haría|iría|habría|tuviera de|sabría|querría)\b/gi, cat: 'grammar', label: 'Condicionales', fix: null, why: 'Después de "si" nunca condicional: si tuviera / si hubiera tenido.', topic: 'es-cond-2' },
+    { id: 'si-cond', re: /(?<!(?:pregunt\p{L}*|sé|sabe\p{L}*|saber|dud\p{L}*|ver)\s)(?<![\p{L}])si (\p{L}+ )?(tendría|sería|podría|estaría|haría|iría|habría|tuviera de|sabría|querría)(?![\p{L}])/giu, cat: 'grammar', label: 'Condicionales', fix: null, why: 'Después de "si" nunca condicional: si tuviera / si hubiera tenido.', topic: 'es-cond-2' },
     { id: 'muy-mucho', re: /\bmuy mucho\b/gi, cat: 'interference', label: 'Cuantificadores', fix: 'muchísimo', why: '"Muy mucho" no existe: muchísimo.' },
     { id: 'muy-adj-mucho', re: /\bmuy (bastante|demasiado)\b/gi, cat: 'grammar', label: 'Cuantificadores', fix: '$1', why: 'No se combina "muy" con bastante/demasiado.' },
     { id: 'gracias-para', re: /\bgracias para\b/gi, cat: 'interference', label: 'Por / para', fix: 'gracias por', why: 'Gracias por (causa).', topic: 'es-por-para' },
@@ -596,8 +605,8 @@
     { id: 'he-nacido', re: /\b(he|ha|has|hemos|han) nacido\b/gi, cat: 'interference', label: 'Tiempos verbales', fix: (m, v) => ({ he: 'nací', ha: 'nació', has: 'naciste', hemos: 'nacimos', han: 'nacieron' }[v.toLowerCase()]), why: 'Italiano "sono nato" → nací (indefinido).', topic: 'es-indefinido' },
     { id: 'perf-ayer', re: /\b(ayer|anoche|el año pasado|la semana pasada|el mes pasado|hace \w+ (?:días|años|meses|semanas)),? (he|has|ha|hemos|han) (\w+(?:ado|ido)|hecho|dicho|visto|escrito|puesto|vuelto)\b/gi, cat: 'grammar', label: 'Tiempos verbales', fix: null, why: 'Con un tiempo terminado (ayer, el año pasado) → indefinido en la norma peninsular.', topic: 'es-indefinido' },
     { id: 'mas-mejor', re: /\bmás (mejor|peor|mayor|menor)\b/gi, cat: 'grammar', label: 'Comparativos', fix: '$1', why: 'Mejor/peor ya son comparativos.', topic: 'es-comparatives' },
-    { id: 'a-el', re: /\ba el\b/g, cat: 'spelling', label: 'Contracciones', fix: 'al', why: 'a + el = al.' },
-    { id: 'de-el', re: /\bde el\b/g, cat: 'spelling', label: 'Contracciones', fix: 'del', why: 'de + el = del.' },
+    { id: 'a-el', re: /(?<![\p{L}])a el(?![\p{L}])/gu, cat: 'spelling', label: 'Contracciones', fix: 'al', why: 'a + el = al.' },
+    { id: 'de-el', re: /(?<![\p{L}])de el(?![\p{L}])/gu, cat: 'spelling', label: 'Contracciones', fix: 'del', why: 'de + el = del.' },
     { id: 'tener-de', re: /\b(tengo|tienes|tiene|tenemos|tienen) de (\w+ar|\w+er|\w+ir)\b/gi, cat: 'interference', label: 'Perífrasis', fix: '$1 que $2', why: 'Obligación: tener que + infinitivo.', topic: 'es-perifrasis-1' },
     { id: 'haber-plural', re: /\b(habían|hubieron|habrán) (muchos|muchas|dos|tres|varios|varias|algunos|algunas|pocos|pocas|\d+)\b/gi, cat: 'grammar', label: 'Concordancia', fix: (m, v, q) => ({ habían: 'había', hubieron: 'hubo', habrán: 'habrá' }[v.toLowerCase()]) + ' ' + q, why: 'Haber impersonal es siempre singular.', topic: 'es-concordancia-av' },
     { id: 'le-lo', re: /\b(le|les) (lo|la|los|las)\b/gi, cat: 'grammar', label: 'Pronombres', fix: 'se $2', why: 'Le/les + lo/la → se lo / se la.', topic: 'es-double-pronouns' },

@@ -1,7 +1,8 @@
 # Lingua OS — Personal Language Learning OS
 
-Web app per portare **inglese e spagnolo fino al C2**, con account personale, database nel cloud e
-sincronizzazione tra computer, iPhone e iPad. Prima versione progettata per costare **0 €**.
+Web app per portare **🇬🇧 inglese, 🇪🇸 spagnolo, 🇩🇪 tedesco e 🇫🇷 francese fino al C2** — ognuna con il proprio
+profilo CEFR, curriculum e dati — con account personale, database nel cloud e sincronizzazione tra
+computer, iPhone e iPad. Progettata per costare **0 €**.
 
 - **Frontend**: HTML + CSS + JavaScript (nessun framework), pubblicato su **Vercel**
 - **Login e registrazione**: **Supabase Auth** (l'app non vede né salva mai le password)
@@ -22,6 +23,7 @@ sincronizzazione tra computer, iPhone e iPad. Prima versione progettata per cost
 9. [Risoluzione dei problemi](#9-risoluzione-dei-problemi)
 10. [Integrazione futura con un'AI](#10-integrazione-futura-con-unai)
 11. [Checklist](#11-checklist)
+12. [Le quattro lingue e come aggiungerne una quinta](#12-le-quattro-lingue-e-come-aggiungerne-una-quinta)
 
 ---
 
@@ -66,7 +68,9 @@ modifiche rimaste in sospeso, poi scarica tutti i tuoi dati dal database. Il dat
 | `js/sync/sync.js` | Sincronizzazione, cache locale, coda offline, stato "Online/Offline" |
 | `js/state/store.js` | Stato in memoria dell'utente collegato |
 | `js/engine/` | Motore didattico: valutazione CEFR, ripasso a intervalli, pianificatore… |
-| `js/content/` | Contenuti: un pacchetto per lingua (aggiungere una lingua = aggiungere un file) |
+| `js/content/languages.js` | **Registro centrale delle lingue** (`LANGUAGES = { en, es, de, fr }`): nome, bandiera, locale, caratteristiche, categorie di errore, pronuncia |
+| `js/content/<codice>*.js` | Pacchetti di contenuti per lingua: `de.js` (grammatica), `de-lex.js` (lessico, testi, test, esercizi, pronuncia, controlli di scrittura), `de-pro.js` (medico/professionale); idem `fr`, `en`, `es` |
+| `js/content/compare.js` | Strutture a confronto tra italiano, inglese, spagnolo, tedesco e francese |
 | `js/ai.js` | Punto unico per collegare in futuro un'AI tramite un backend |
 | `supabase-schema.sql` | Tabelle, indici, RLS, policy, trigger, funzioni |
 | `scripts/build.js` | Prepara la cartella `dist/` per Vercel e scrive la configurazione pubblica |
@@ -77,8 +81,9 @@ modifiche rimaste in sospeso, poi scarica tutti i tuoi dati dal database. Il dat
 **Tabelle del database** (tutte con `user_id` e protette da RLS): `profiles`, `user_settings`,
 `language_profiles`, `vocabulary`, `vocabulary_reviews`, `grammar_progress`, `study_sessions`, `errors`,
 `listening_content`, `work_schedule`, più `productions` (testi scritti e parlato), `daily_plans`,
-`assessments` (test di livello) e `weekly_reviews`. Le lingue sono in una tabella `languages`
-(`en`, `es`): per aggiungere il francese basta una riga in quella tabella e un pacchetto di contenuti.
+`assessments` (test di livello) e `weekly_reviews`. Ogni tabella didattica ha la colonna
+**`language_code`** (`en`, `es`, `de`, `fr`) che rimanda alla tabella `languages`: non esistono tabelle
+separate per lingua (niente `german_vocabulary`), quindi una quinta lingua non richiede nuove tabelle.
 Quasi tutte le tabelle hanno una colonna `data` (JSON) per aggiungere campi senza riscrivere l'app.
 
 ---
@@ -133,6 +138,9 @@ Hai due possibilità:
 3. Incolla tutto nell'editor e premi **Run** (o Ctrl/Cmd + Invio).
 4. Deve comparire *Success. No rows returned*. (Se lo esegui una seconda volta va bene lo stesso:
    lo script è ripetibile.)
+   **Hai già eseguito una versione precedente dello script?** Esegui di nuovo quello aggiornato: rinomina
+   da solo la colonna `language` in `language_code`, aggiunge tedesco e francese e i nuovi campi
+   dell'ascolto, **senza cancellare i dati** (verificato su PostgreSQL).
 5. Verifica: menu **Table Editor** → devono esserci le tabelle elencate nella sezione 1, e ognuna deve
    avere l'etichetta **RLS enabled** (non "RLS disabled").
 
@@ -302,7 +310,13 @@ npm start              # build + server su http://localhost:5173
 Ricorda di aggiungere `http://localhost:5173/**` ai Redirect URLs di Supabase (passo 8).
 
 **Test automatici** (già eseguiti durante lo sviluppo):
-- `npm test` — conversione stato ⇄ database senza perdita di dati (inglese e spagnolo separati).
+- `npm test` — (1) `tests/content.test.js`: oltre 5.500 controlli su tutti i pacchetti di lingua
+  (riferimenti, risposte, copertura A1→C2, e che i controlli di scrittura non segnalino errori sulle frasi
+  corrette del curriculum); (2) conversione stato ⇄ database senza perdita di dati, con le 4 lingue separate.
+- `tests/e2e-languages.js` — nel browser: onboarding con 4 lingue e livelli diversi, selettore, cambio
+  lingua senza logout, errori e test di livello solo nella lingua giusta, planner multilingue, pronuncia,
+  confronto, moduli medici DE/FR, mobile, ripristino su un secondo dispositivo.
+- `LANG_CODE=de node tests/e2e-learning.js` (anche `en`, `es`, `fr`) — tutte le attività in quella lingua.
 - `node tests/mapper-roundtrip.test.js --sql out.sql` — genera le righe come SQL da inserire in un
   PostgreSQL con lo schema, per verificare vincoli e RLS su un database reale.
 - `tests/e2e-cloud.js` e `tests/e2e-learning.js` — test nel browser (Playwright) con un backend simulato
@@ -368,6 +382,7 @@ Legenda: ✅ implementato e verificato con test automatici · ⚙️ richiede la
 - ✅ RLS configurato su tutte le tabelle (verificato su PostgreSQL reale)
 - ✅ Ogni utente vede solo i propri dati (verificato: lettura, modifica, cancellazione, falsificazione di `user_id`)
 - ✅ English separato da Spanish (livelli, vocabolario, grammatica, errori, statistiche, cronologia)
+- ✅ Quattro lingue indipendenti (EN, ES, DE, FR) — vedi la checklist della sezione 12
 - ✅ Sincronizzazione tra dispositivi (verificato: dispositivo A → logout → dispositivo B)
 - ✅ Local cache (solo come copia; rimossa al logout)
 - ✅ Gestione offline (coda delle modifiche, anche dopo chiusura del browser)
@@ -380,3 +395,71 @@ Legenda: ✅ implementato e verificato con test automatici · ⚙️ richiede la
 **Flusso completo verificato** (test automatici con backend simulato + PostgreSQL reale per schema e RLS):
 registrazione → login → creazione profilo → inserimento dati → salvataggio nel database → logout →
 login da un altro dispositivo → recupero di tutti i dati, senza perdite.
+
+
+---
+
+## 12. Le quattro lingue e come aggiungerne una quinta
+
+**Un'unica architettura, contenuti indipendenti.** Il motore (valutazione CEFR, ripasso, planner,
+registro errori, analisi di scrittura e parlato, sincronizzazione) lavora solo con un **codice lingua**.
+Tutto ciò che è specifico di una lingua sta in due posti:
+
+1. `js/content/languages.js` — il registro `LOS.LANGUAGES = { en: {…}, es: {…}, de: {…}, fr: {…} }`:
+   nome, bandiera, locale e voce, caratteristiche grammaticali (casi, generi, forma di cortesia…),
+   **categorie di errore proprie** (tedesco: casi, ordine delle parole, genere, desinenze aggettivali,
+   verbo + preposizione, verbi separabili; francese: genere, accordi, coniugazione, pronomi, preposizioni,
+   subjonctif), focus di pronuncia, note di registro;
+2. i pacchetti `js/content/<codice>*.js` — curriculum grammaticale **scritto per quella lingua** (non
+   tradotto), vocabolario con articolo e plurale (`der Tisch — die Tische`, `la voiture — les voitures`),
+   test di livello, testi di lettura e ascolto, esercizi "pensa nella lingua", scrittura, speaking,
+   fonti di ascolto classificate, guida di pronuncia, controlli di scrittura per italofoni, moduli
+   medici e professionali con formule autentiche (Anamnese, Aufklärungsgespräch, Übergabe, Konsil,
+   Arztbrief/Fachsprachprüfung; interrogatoire, consultation d'anesthésie, transmissions SAED, RCP,
+   dispositif d'annonce, personne de confiance).
+
+**Aggiungere una quinta lingua** (es. `it`, `pt`, `ja`):
+1. una voce in `js/content/languages.js` (codice, nome, bandiera, locale, caratteristiche, categorie di errore);
+2. i pacchetti di contenuti `js/content/<codice>.js` (+ `-lex`, `-pro`) con `LOS.lang.register({ code, … })`;
+3. tre righe `<script>` in `index.html` e, se vuoi, un colore `--lang-<codice>` in `css/style.css`;
+4. una riga nella tabella `languages` (`insert into public.languages (code, name, native_name) values (…)`).
+
+Nessun componente del motore, delle schermate o della sincronizzazione va modificato; `npm test`
+verifica automaticamente che il nuovo pacchetto sia completo (A1→C2) e coerente.
+
+**Cosa è dichiaratamente limitato (senza servizi a pagamento o AI):**
+- la correzione della scrittura è a regole: individua gli errori tipici degli italofoni e propone la
+  versione corretta e più naturale, vocabolario migliorabile, connettivi del livello successivo e
+  strutture da ripassare; una riscrittura completa di testi liberi richiede un backend AI (sezione 10);
+- la pronuncia usa la sintesi vocale del dispositivo (qualità dipendente dalle voci installate) e non
+  c'è una valutazione automatica della tua pronuncia: lo speaking ti registra per il confronto e misura
+  fluenza, esitazioni e varietà dalla trascrizione (dove il browser offre il riconoscimento vocale);
+- le fonti di ascolto sono suggerimenti di contenuti gratuiti esterni (DW, Easy German, Tagesschau, RFI,
+  TV5Monde, France Culture…): l'app non li ospita.
+
+### Checklist dell'estensione DE/FR
+
+- ✅ English funzionante · ✅ Spanish funzionante · ✅ German funzionante · ✅ French funzionante
+  (tutte le 11 attività completate in ciascuna lingua dai test nel browser)
+- ✅ Quattro profili CEFR indipendenti (sottolivelli A1.1 … C2.2)
+- ✅ Quattro test di livello indipendenti (grammatica, lessico, lettura, ascolto, scrittura, speaking,
+  comprensione, naturalezza/registro), salvati solo nella lingua corrispondente
+- ✅ Quattro database linguistici logici (`language_code` in ogni tabella didattica)
+- ✅ Grammatica specifica per lingua (DE 52 argomenti, FR 47, EN 51, ES 49 — da A1 a C2)
+- ✅ Vocabolario specifico (articolo, plurale, genere, IPA, accento, registro, collocazioni, sinonimi,
+  contrari, errori comuni, parole correlate)
+- ✅ Registro errori per lingua con categorie proprie, che influenzano la scelta degli esercizi
+- ✅ Ripasso a intervalli indipendente per lingua
+- ✅ Ascolto per lingua, con classificazione (CEFR, durata, argomento, difficoltà, accento, velocità, trascrizione)
+- ✅ Scrittura per lingua (correzione, spiegazione, versione naturale, versione più avanzata, registro,
+  vocabolario migliorabile, strutture da ripassare)
+- ✅ Speaking per lingua (fluenza, accuratezza, lessico, pronuncia, grammatica, complessità, coerenza,
+  naturalezza, esitazioni, registro)
+- ✅ Linguaggio professionale e ✅ linguaggio medico in tutte e 4 le lingue
+- ✅ Pronuncia (guide complete per tedesco e francese) · ✅ Confronta lingue (IT/EN/ES/DE/FR)
+- ✅ "Pensa nella lingua" con scala a 6 livelli legata al livello di ciascuna lingua
+- ✅ Dashboard comparativa (clic su una lingua → sua dashboard) · ✅ selettore lingua compatto
+- ✅ Planner multilingue realistico (rotazione nei giorni brevi, sessione minima)
+- ✅ Sincronizzazione Supabase · ✅ dati separati per `language_code` (verificato su PostgreSQL reale)
+- ✅ Architettura pronta per una quinta lingua
+- ⚙️ Se avevi già creato il database: **riesegui `supabase-schema.sql`** (migrazione automatica)

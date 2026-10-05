@@ -11,11 +11,11 @@
 
   /* ---------------- shell ---------------- */
   const NAV = [
-    { group: 'Learn', items: [['dashboard', 'Dashboard', 'dashboard'], ['today', 'Today', 'today'], ['grammar', 'Grammar', 'grammar'], ['vocabulary', 'Vocabulary', 'vocabulary'], ['reading', 'Reading', 'reading'], ['listening', 'Listening', 'listening'], ['writing', 'Writing', 'writing'], ['speaking', 'Speaking', 'speaking'], ['think', 'Think in the language', 'think']] },
+    { group: 'Learn', items: [['dashboard', 'Dashboard', 'dashboard'], ['today', 'Today', 'today'], ['grammar', 'Grammar', 'grammar'], ['vocabulary', 'Vocabulary', 'vocabulary'], ['reading', 'Reading', 'reading'], ['listening', 'Listening', 'listening'], ['writing', 'Writing', 'writing'], ['speaking', 'Speaking', 'speaking'], ['pronunciation', 'Pronunciation', 'volume'], ['think', 'Think in the language', 'think'], ['compare', 'Compare languages', 'swap']] },
     { group: 'Professional', items: [['medical', 'Medical Language', 'medical'], ['professional', 'Professional Communication', 'professional']] },
     { group: 'Track', items: [['calendar', 'Calendar', 'calendar'], ['progress', 'Progress', 'progress'], ['errors', 'Error Log', 'errors'], ['review', 'Weekly Review', 'review']] },
   ];
-  const ROUTE_TITLE = { dashboard: 'Dashboard', today: 'Today', grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', medical: 'Medical', professional: 'Professional', calendar: 'Calendar', progress: 'Progress', errors: 'Error Log', review: 'Weekly Review', settings: 'Settings', assessment: 'Assessment', session: 'Session', practice: 'Practice' };
+  const ROUTE_TITLE = { dashboard: 'Dashboard', today: 'Today', grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', pronunciation: 'Pronunciation', compare: 'Compare', medical: 'Medical', professional: 'Professional', calendar: 'Calendar', progress: 'Progress', errors: 'Error Log', review: 'Weekly Review', settings: 'Settings', assessment: 'Assessment', session: 'Session', practice: 'Practice' };
 
   /** Compact language selector: "🇩🇪 Deutsch · A2 ▾" with a menu of all languages. */
   function langSwitch(where) {
@@ -223,11 +223,12 @@
           <p class="sub">${budget.mode === 'rest' ? 'Rest day.' : `${total} minutes · ${U.sum(plans.map((p) => p.plan.items.length))} activities`} ${done ? `· ${done} min done` : ''}</p></div>
           <div class="cluster"><button class="btn sm" data-act="lowEnergy">${icon('battery', 14)} ${info.lowEnergy ? 'Normal energy' : 'Low energy'}</button><button class="btn sm" data-act="rest">${icon('rest', 14)} ${info.rest ? 'Undo rest day' : 'Rest day'}</button><button class="btn ghost sm" data-act="regen">${icon('swap', 14)} Regenerate</button></div></div>
         <div class="notice">${icon('activity', 16)}<div><strong>${esc(info.label)}</strong> → ${esc(modeLabel(budget.mode))}. ${budget.why.map(esc).join(' · ')}</div></div>
+        ${plans.length > 1 ? `<div class="section"><div class="list">${plans.map(({ code: c, plan }) => `<div class="row" style="min-height:44px"><span class="grow">${ui.langFlag(c)} <strong>${esc(ui.langNative(c))}</strong> — ${plan.minutes} min</span><span class="muted small">${esc([...new Set(plan.items.map((i) => U.SKILL_LABEL[i.skill] || i.skill))].slice(0, 3).join(' + '))}</span></div>`).join('')}</div></div>` : ''}
         ${plans.map(({ code: c, plan }) => `<div class="section"><div class="section-head"><h2>${ui.langFlag(c)} ${esc(ui.langName(c))} · ${plan.minutes} min</h2><span class="faint small">${esc(modeLabel(plan.mode))}</span></div>
           <p class="muted small">Focus: <strong>${esc(plan.focus.title)}</strong></p>
           <div class="list mt-8">${plan.items.map((it) => planItemRow(c, U.today(), it)).join('')}</div></div>`).join('')}
         ${budget.mode === 'rest' ? ui.empty({ icon: 'rest', title: 'Rest day', text: 'Nothing scheduled. Spaced repetition waits for you; nothing piles up.', action: '<a class="btn" href="#/practice/review/all">Optional quick review</a>' }) : ''}
-        ${missing.length && budget.mode !== 'rest' ? `<div class="section">${missing.map((c) => `<div class="between card soft"><div><strong>${esc(ui.langName(c))}</strong><div class="muted small">Not scheduled today — short days focus on one language.</div></div><button class="btn sm" data-act="extraFor" data-code="${c}">Add 15 min</button></div>`).join('')}</div>` : ''}
+        ${missing.length && budget.mode !== 'rest' ? `<div class="section">${missing.map((c) => `<div class="between card soft"><div><strong>${esc(ui.langName(c))}</strong><div class="muted small">Not scheduled today: the time available is shared by rotation, so this language gets priority on one of the next days. Its reviews keep their own schedule.</div></div><button class="btn sm" data-act="extraFor" data-code="${c}">Add 15 min</button></div>`).join('')}</div>` : ''}
         <div class="section"><div class="section-head"><h3>How today was planned</h3></div>
           <ol class="muted small lesson" style="padding-left:18px">
             <li>Workload: ${esc(info.label)} → ${info.category} day (${S().rules[info.category].join('–')} min rule).</li>

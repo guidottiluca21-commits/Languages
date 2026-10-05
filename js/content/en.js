@@ -578,6 +578,12 @@
     { type: 'conceptual', l: 'C1', p: 'Is it ever right to withhold information from a patient? Argue both sides.', keys: ['autonomy', 'harm', 'on the other hand', 'it depends'] },
     { type: 'conceptual', l: 'C2', p: 'Is fluency the same as competence? Explore the ambiguity of the question.', keys: ['arguably', 'it hinges on', 'conflate', 'nuance'] },
     { type: 'conceptual', l: 'C2', p: 'What is the role of irony in professional communication? Give examples.', keys: ['understatement', 'implicit', 'tone', 'misread'] },
+    { type: 'opinion', l: 'B1', p: 'Should hospital staff wear name badges with their first name? Give your opinion and one reason.', keys: ['I think', 'because', 'also', 'so'] },
+    { type: 'opinion', l: 'B2', p: 'Is remote work good for teamwork? Give your view.', keys: ['in my view', 'on the one hand', 'on the other hand', 'overall'] },
+    { type: 'defend', l: 'B2', p: 'Defend this claim even if you disagree: "Doctors should retake an exam every five years."', keys: ['what matters is', 'for instance', 'one could object', 'even so'] },
+    { type: 'defend', l: 'C1', p: 'A colleague says: "Structured handovers just waste time." Rebut him with two arguments.', keys: ['I\'d disagree', 'the evidence shows', 'precisely because', 'ultimately'] },
+    { type: 'spontaneous', l: 'C1', p: 'Halfway through your talk the projector dies. React and carry on.', model: 'Well, technology isn\'t on our side today! No problem — I\'ll talk you through what was on the slide, and you can picture the graph.' },
+    { type: 'spontaneous', l: 'C2', p: 'During a meeting, a relative suddenly raises their voice and accuses the team. React on the spot.', model: 'I can see how hard this is for you, and that\'s completely understandable. Let\'s take the time to go through what happened, step by step — I\'m not going anywhere.' },
   ];
 
   /* ---------------- writing prompts ---------------- */

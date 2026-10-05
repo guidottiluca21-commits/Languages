@@ -158,11 +158,20 @@
     const keysUsed = findPhrases(textNorm, ctx.keys || []);
     const keysMissing = (ctx.keys || []).filter((k) => !keysUsed.includes(k));
 
+    // 10b. ways to go further: richer vocabulary, the next level of connectors, structures to review
+    const up = pack.upgrades || {};
+    const upgrades = Object.keys(up).filter((k) => wset.has(k.toLowerCase())).map((k) => ({ w: k, alts: up[k] })).slice(0, 6);
+    const usedConn = new Set(conns.map((c) => c.c));
+    const nextLvl = U.LEVELS[Math.min(5, Math.max(maxConnLvl + 1, taskIdx))];
+    const nextConnectors = ((pack.connectors || {})[nextLvl] || []).filter((c) => !usedConn.has(c)).slice(0, 5);
+    const review = [...new Set(issues.map((i) => i.topic).filter(Boolean))].map((id) => pack.index.grammar[id]).filter(Boolean).map((t) => ({ id: t.id, title: t.title, l: t.l }));
+    const register = { target: reg, informal: informalFound, ok: !regIssues.length };
+
     // 11. human-readable notes
     const notes = [];
     if (errors.length === 0 && nWords > 20) notes.push('No rule-based errors found. (Local checks cover common patterns only.)');
     if (chunks.length) notes.push(`Good use of chunks/collocations: ${chunks.slice(0, 5).join(', ')}.`);
-    if (uniqueConn < expectedConn * 0.6 && sents.length > 2) notes.push('Link your ideas more: add connectors (however, therefore, whereas / sin embargo, por lo tanto…).');
+    if (uniqueConn < expectedConn * 0.6 && sents.length > 2) notes.push(`Link your ideas more: add connectors (${((pack.connectors || {}).B2 || []).slice(0, 3).join(', ')}…).`);
     if (avgLen > 30) notes.push('Some sentences are very long — split them for clarity.');
     if (avgLen && avgLen < 8 && nWords > 30) notes.push('Sentences are short and simple — try combining ideas with relative or subordinate clauses.');
     if (repeated.length) notes.push(`Repeated words: ${repeated.slice(0, 4).join(', ')} — vary your vocabulary.`);
@@ -173,7 +182,7 @@
       words: nWords, sentences: sents.length, paragraphs, avgLen: U.round(avgLen, 1), mattr: U.round(mattr, 2),
       connectors: conns, advanced: adv, chunks, repeated, keysUsed, keysMissing,
       sentencesOut, issues, errors, hints, regIssues, scores: sc, overall: U.round(U.avg(Object.values(sc)), 1),
-      estTheta: U.round(est, 2), notes,
+      estTheta: U.round(est, 2), notes, upgrades, nextConnectors, nextLevel: nextLvl, review, register,
     };
   }
 

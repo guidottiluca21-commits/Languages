@@ -68,9 +68,9 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await A.waitForSelector('.focus-card');
   await waitSynced(A);
   const lp = await rows(A, 'language_profiles');
-  ok(lp.length === 2 && lp.some((r) => r.language === 'en') && lp.some((r) => r.language === 'es'), 'a language_profile row exists for each chosen language (en, es)');
+  ok(lp.length === 2 && lp.some((r) => r.language_code === 'en') && lp.some((r) => r.language_code === 'es'), 'a language_profile row exists for each chosen language (en, es)');
   ok((await rows(A, 'profiles'))[0].display_name === 'Luca' && (await rows(A, 'profiles'))[0].native_language === 'it', 'profile (display name, native language) saved to the database');
-  ok(lp.find((r) => r.language === 'es').current_level.startsWith('A2') && lp.find((r) => r.language === 'en').current_level.startsWith('B2'), 'independent levels per language (EN B2, ES A2)');
+  ok(lp.find((r) => r.language_code === 'es').current_level.startsWith('A2') && lp.find((r) => r.language_code === 'en').current_level.startsWith('B2'), 'independent levels per language (EN B2, ES A2)');
   await A.screenshot({ path: SHOTS + 'c04-dashboard.png' });
   ok(/Sincronizzato/.test(await A.textContent('.sidebar [data-sync-pill]')), 'sync indicator shows "Online · Sincronizzato"');
 
@@ -87,8 +87,8 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await A.evaluate(() => { LOS.store.state.schedule.overrides[LOS.util.addDays(LOS.util.today(), 1)] = { type: 'night', start: '20:00', end: '08:00' }; LOS.store.state.time.target = 50; LOS.store.save(); });
   await waitSynced(A);
   const vocab = await rows(A, 'vocabulary');
-  ok(vocab.some((r) => r.word === 'bottleneck' && r.language === 'en' && r.is_custom), 'new word saved to the database (vocabulary, language=en)');
-  ok((await rows(A, 'listening_content')).some((r) => r.url.includes('youtube') && r.language === 'en'), 'YouTube listening entry saved');
+  ok(vocab.some((r) => r.word === 'bottleneck' && r.language_code === 'en' && r.is_custom), 'new word saved to the database (vocabulary, language_code=en)');
+  ok((await rows(A, 'listening_content')).some((r) => r.url.includes('youtube') && r.language_code === 'en'), 'YouTube listening entry saved');
   ok((await rows(A, 'study_sessions')).length >= 1, 'completed session saved (study_sessions)');
   ok((await rows(A, 'work_schedule')).some((r) => r.type === 'night'), 'calendar change saved (work_schedule)');
   ok((await rows(A, 'user_settings'))[0].daily_target === 50, 'settings change saved (user_settings)');
@@ -150,7 +150,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await B.waitForSelector('text=Let\'s build your');
   ok(await B.evaluate(() => Object.keys(LOS.store.state.langs).length === 0), 'second user starts empty (sees none of user A data)');
   const uidC = await B.evaluate(() => LOS.auth.userId);
-  const attack = await B.evaluate(async (a) => (await LOS.auth.client.from('vocabulary').upsert([{ user_id: a, language: 'en', item_key: 'x', word: 'hack' }], { onConflict: 'user_id,language,item_key' })).error, uidA);
+  const attack = await B.evaluate(async (a) => (await LOS.auth.client.from('vocabulary').upsert([{ user_id: a, language_code: 'en', item_key: 'x', word: 'hack' }], { onConflict: 'user_id,language_code,item_key' })).error, uidA);
   ok(attack && attack.code === '42501', 'writing a row with another user_id is refused (RLS, also proven on real Postgres)');
   await B.goto(BASE + '#/welcome');
   await B.evaluate(() => { LOS.store.state.settings.onboarded = true; LOS.store.ensureLang('en').onboarded = true; LOS.assessment.fromEstimate('en', 2); LOS.store.save(true); });

@@ -12,7 +12,8 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
-['js/core.js', 'js/content/shared.js', 'js/content/en.js', 'js/content/en-pro.js', 'js/content/es.js', 'js/content/es-pro.js', 'js/state/store.js',
+['js/core.js', 'js/content/languages.js', 'js/content/shared.js', 'js/content/en.js', 'js/content/en-pro.js', 'js/content/es.js', 'js/content/es-pro.js',
+ 'js/content/de.js', 'js/content/de-lex.js', 'js/content/de-pro.js', 'js/content/fr.js', 'js/content/fr-lex.js', 'js/content/fr-pro.js', 'js/state/store.js',
  'js/engine/srs.js', 'js/engine/skills.js', 'js/engine/learning.js', 'js/engine/writing.js', 'js/engine/assessment.js', 'js/engine/planner.js', 'js/engine/progress.js', 'js/data/mapper.js']
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f }));
 const LOS = ctx.LOS, U = LOS.util;
@@ -22,12 +23,12 @@ const ok = (cond, msg) => { if (!cond) { failures++; console.log('FAIL', msg); }
 /* ---- build a rich state with the real engine ---- */
 const st = LOS.store.state;
 st.settings.onboarded = true; st.profile.name = 'Luca'; st.profile.native = 'it'; st.profile.field = 'Medicine';
-st.time = { min: 20, target: 45, max: 100 }; st.settings.langWeights = { en: 60, es: 40 }; st.settings.theme = 'dark';
+st.time = { min: 20, target: 45, max: 100 }; st.settings.langWeights = { en: 60, es: 40, de: 50, fr: 30 }; st.settings.theme = 'dark';
 st.schedule.overrides[U.addDays(U.today(), 1)] = { type: 'night', start: '20:00', end: '08:00', note: 'ICU' };
 st.schedule.overrides[U.addDays(U.today(), 5)] = { type: 'vacation' };
 st.days[U.addDays(U.today(), 2)] = { rest: true };
 st.days[U.today()] = { lowEnergy: true };
-for (const code of ['en', 'es']) {
+for (const code of ['en', 'es', 'de', 'fr']) {
   const L = LOS.store.ensureLang(code);
   const d = LOS.assessment.start(code, 3);
   for (let i = 0; i < 40; i++) { const c = LOS.assessment.current(d); if (c.done) break; if (c.special === 'writing') { LOS.assessment.submitWriting(d, 'I have been working in a hospital since many years and the patients is often tired. However, we manage.', 'B2'); continue; } if (c.special === 'speaking') { LOS.assessment.submitSpeaking(d, { B1: [true, true, true], B2: [true, false, true], C1: [false, false, false] }); continue; } LOS.assessment.answer(d, i % 3); }
@@ -46,7 +47,7 @@ for (const code of ['en', 'es']) {
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.', natural: 'People are exhausted.', note: 'plural' });
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.' }); // same-day duplicate → count 2
   LOS.learn.recordSession(code, { type: 'grammar', skill: 'grammar', minutes: 12, score: 0.75, title: 'Conditionals' });
-  L.listening.unshift({ id: U.uid('lis'), date: U.today(), title: 'Podcast', url: 'www.youtube.com/watch?v=abcdefghijk', minutes: 20, level: 'B2', comprehension: 70, difficulty: 3, steps: ['general'], notes: 'nice', words: ['x'] });
+  L.listening.unshift({ id: U.uid('lis'), date: U.today(), title: 'Podcast', url: 'www.youtube.com/watch?v=abcdefghijk', minutes: 20, level: 'B2', comprehension: 70, difficulty: 3, steps: ['general'], notes: 'nice', words: ['x'], topic: 'medicine', accent: 'Austria', speed: 'fast', transcript: true });
   L.writings.unshift({ id: U.uid('wri'), date: U.today(), promptId: 'p', title: 'Essay', genre: 'Essay', level: 'B2', text: 'Some text', words: 2, scores: { grammar: 3 }, overall: 3.4, estTheta: 3.2, checks: 1 });
   L.speakings.unshift({ id: U.uid('spk'), date: U.today(), taskId: 't', title: 'Talk', level: 'B2', transcript: 'hello', secs: 30, ratings: { fluency: 3 }, overall: 3 });
 }
@@ -77,7 +78,7 @@ const canon = (x) => {
 };
 const a = canon(JSON.parse(JSON.stringify(st))), b = canon(JSON.parse(JSON.stringify(st2)));
 // URL normalization is an intended change
-a.langs.en.listening.forEach((x) => (x.url = 'https://' + x.url)); a.langs.es.listening.forEach((x) => (x.url = 'https://' + x.url));
+['en', 'es', 'de', 'fr'].forEach((c) => a.langs[c].listening.forEach((x) => (x.url = 'https://' + x.url)));
 function firstDiff(x, y, p = '') {
   if (JSON.stringify(x) === JSON.stringify(y)) return null;
   if (typeof x !== 'object' || typeof y !== 'object' || !x || !y) return p + ': ' + String(JSON.stringify(x)).slice(0, 120) + ' ≠ ' + String(JSON.stringify(y)).slice(0, 120);
@@ -90,6 +91,10 @@ const rows2 = LOS.mapper.toRows(st2, uid);
 delete rows.vocabulary_reviews; delete rows2.vocabulary_reviews;
 ok(JSON.stringify(rows2) === JSON.stringify(Object.assign({}, rows, { listening_content: rows.listening_content })), 're-mapping the rebuilt state yields identical rows (no spurious re-uploads)');
 ok(Object.keys(st2.langs.en.vocab).length === Object.keys(st.langs.en.vocab).length && st2.langs.es.custom.length === 1, 'English and Spanish vocabulary stay separate');
+for (const c of ['en', 'es', 'de', 'fr']) ok(rows.language_profiles.some((r) => r.language_code === c), `a language_profiles row for ${c}`);
+ok(['vocabulary', 'grammar_progress', 'errors', 'study_sessions', 'listening_content'].every((t) => rows[t].every((r) => ['en', 'es', 'de', 'fr'].includes(r.language_code) && (!r.item_key || !r.item_key.includes(':') || r.item_key.startsWith(r.language_code + ':')))), 'every learning row carries language_code and only its own language\'s items');
+ok(Object.keys(st2.langs.de.vocab).every((k) => k.startsWith('de:')) && Object.keys(st2.langs.fr.vocab).every((k) => k.startsWith('fr:')), 'German and French vocabulary stay separate');
+ok(rows.listening_content.some((r) => r.topic === 'medicine' && r.accent === 'Austria' && r.speed === 'fast' && r.has_transcript === true), 'listening classification columns are filled');
 process.exitCode = failures ? 1 : 0;
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');
 

@@ -18,7 +18,7 @@
     const pref = (LOS.store.state.settings.tts[code] || {}).voice;
     const list = voicesFor(code);
     const pack = LOS.lang.get(code);
-    return list.find((v) => v.name === pref) || list.find((v) => v.lang === pack.speech) || list.find((v) => /natural|premium|enhanced|google/i.test(v.name)) || list[0] || null;
+    return list.find((v) => v.name === pref) || list.find((v) => pack && v.lang === pack.speech) || list.find((v) => /natural|premium|enhanced|google/i.test(v.name)) || list[0] || null;
   }
 
   const speech = (LOS.speech = {

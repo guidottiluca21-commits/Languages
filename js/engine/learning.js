@@ -255,6 +255,17 @@
       const ex = v.ex || '';
       const idx = ex.toLowerCase().indexOf(v.w.toLowerCase());
       if (idx >= 0) return { mode: 'production', v, before: ex.slice(0, idx), after: ex.slice(idx + v.w.length), hint: v.w.charAt(0) };
+      // nouns learnt with their article (der Tisch, la voiture): find the noun and take the article actually used
+      // in the example (den Tisch, einem Tisch, la voiture…) — the case form is part of what is practised.
+      const parts = v.w.split(' ');
+      const arts = P(code).articles || [];
+      if (parts.length > 1 && arts.includes(parts[0].toLowerCase().replace(/['’]$/, ''))) {
+        const noun = parts.slice(1).join(' ');
+        const det = arts.concat(['kein', 'keine', 'keinen', 'keinem', 'keiner', 'mein', 'meine', 'meinen', 'meinem', 'meiner', 'ihr', 'ihre', 'ihren', 'ihrem', 'unser', 'unsere', 'unseren', 'dieser', 'diese', 'diesen', 'diesem', 'au', 'aux', 'du', 'des', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'votre', 'vos', 'notre', 'leur', 'ce', 'cet', 'cette', 'ces', "l'", "d'"]).map((x) => x.replace(/'/g, "['’]")).join('|');
+        const m = new RegExp('(?:^|[^\\p{L}])((?:(?:' + det + ')\\s?)?' + noun.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\p{L}*)', 'iu').exec(ex);
+        if (m) { const word = m[1]; const j = m.index + m[0].length - word.length; return { mode: 'production', v, before: ex.slice(0, j), after: ex.slice(j + word.length), hint: word.charAt(0), target: word }; }
+        return { mode: 'recall', v };
+      }
       // try a shorter anchor (first word of a chunk, e.g. inflected verbs)
       const head = v.w.split(' ')[0];
       const j = head.length > 3 ? ex.toLowerCase().indexOf(head.toLowerCase().slice(0, -1)) : -1;
@@ -438,7 +449,8 @@
     const pool = p.think.filter((t) => Math.abs(U.levelIndex(t.l) - idx) <= 1 && (!opts.type || t.type === opts.type));
     const list = (pool.length ? pool : p.think).map((t, i) => {
       const key = t.type + ':' + t.p.slice(0, 30);
-      let s = rnd() + (lang.seen.think[key] ? 1.2 : 0) - (t.d === 'medical' ? med : 0);
+      const step = LOS.shared.thinkStep(idx);
+      let s = rnd() + (lang.seen.think[key] ? 1.2 : 0) - (t.d === 'medical' ? med : 0) - (!opts.type && step.types.includes(t.type) ? 0.6 : 0);
       return { t, s, key };
     }).sort((a, b) => a.s - b.s);
     // interleave types

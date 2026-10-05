@@ -47,13 +47,17 @@ as $$ select v is null or v ~ '^(A1|A2|B1|B2|C1|C2)(\.[12])?$' $$;
 -- ---------------------------------------------------------------------------
 -- 1. Languages (shared, read-only for users)
 -- ---------------------------------------------------------------------------
+-- One row per language. Adding a language = one insert here + its content packs in the frontend.
 create table if not exists public.languages (
-  code        text primary key check (code ~ '^[a-z]{2,3}$'),
+  code        text primary key check (code ~ '^[a-z]{2,3}$'),   -- ISO 639-1 / 639-3 code (en, es, de, fr…)
   name        text not null,
+  native_name text,
   enabled     boolean not null default true
 );
-insert into public.languages (code, name) values ('en', 'English'), ('es', 'Spanish')
-on conflict (code) do nothing;
+alter table public.languages add column if not exists native_name text;
+insert into public.languages (code, name, native_name) values
+  ('en', 'English', 'English'), ('es', 'Spanish', 'Español'), ('de', 'German', 'Deutsch'), ('fr', 'French', 'Français')
+on conflict (code) do update set name = excluded.name, native_name = excluded.native_name;
 
 -- ---------------------------------------------------------------------------
 -- 2. Personal tables
@@ -90,7 +94,7 @@ create table if not exists public.user_settings (
 create table if not exists public.language_profiles (
   id                uuid primary key default gen_random_uuid(),
   user_id           uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  language          text not null references public.languages(code),
+  language_code     text not null references public.languages(code),
   current_level     text check (public.is_cefr_sub(current_level)),
   target_level      text not null default 'C2' check (public.is_cefr(target_level)),
   grammar_level     numeric(4,2) check (grammar_level between 0 and 6),
@@ -108,14 +112,14 @@ create table if not exists public.language_profiles (
   data              jsonb not null default '{}'::jsonb check (pg_column_size(data) < 524288),
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
-  unique (user_id, language)
+  unique (user_id, language_code)
 );
 
 -- 2.4 Vocabulary (built-in items the user is learning + the user's own items)
 create table if not exists public.vocabulary (
   id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  language        text not null references public.languages(code),
+  language_code   text not null references public.languages(code),
   item_key        text not null check (char_length(item_key) <= 200),
   word            text not null check (char_length(word) <= 200),
   translation     text check (char_length(translation) <= 500),
@@ -136,7 +140,7 @@ create table if not exists public.vocabulary (
   data            jsonb not null default '{}'::jsonb check (pg_column_size(data) < 32768),
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
-  unique (user_id, language, item_key)
+  unique (user_id, language_code, item_key)
 );
 
 -- 2.5 Vocabulary review log (append-only history of Again/Hard/Good/Easy)
@@ -144,7 +148,7 @@ create table if not exists public.vocabulary_reviews (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid not null default auth.uid() references auth.users(id) on delete cascade,
   vocabulary_id  uuid references public.vocabulary(id) on delete cascade,
-  language       text not null references public.languages(code),
+  language_code  text not null references public.languages(code),
   item_key       text not null,
   rating         smallint not null check (rating between 0 and 3),
   reviewed_at    timestamptz not null default now()
@@ -154,7 +158,7 @@ create table if not exists public.vocabulary_reviews (
 create table if not exists public.grammar_progress (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  language      text not null references public.languages(code),
+  language_code text not null references public.languages(code),
   topic         text not null check (char_length(topic) <= 120),
   cefr_level    text check (public.is_cefr(cefr_level)),
   mastery       numeric(5,2) check (mastery between 0 and 100),
@@ -167,7 +171,7 @@ create table if not exists public.grammar_progress (
   data          jsonb not null default '{}'::jsonb check (pg_column_size(data) < 32768),
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
-  unique (user_id, language, topic)
+  unique (user_id, language_code, topic)
 );
 
 -- 2.7 Study sessions (one row per completed activity)
@@ -175,7 +179,7 @@ create table if not exists public.study_sessions (
   id                uuid primary key default gen_random_uuid(),
   user_id           uuid not null default auth.uid() references auth.users(id) on delete cascade,
   client_id         text not null check (char_length(client_id) <= 64),
-  language          text not null references public.languages(code),
+  language_code     text not null references public.languages(code),
   activity_type     text not null check (char_length(activity_type) <= 30),
   skill             text check (char_length(skill) <= 30),
   title             text check (char_length(title) <= 200),
@@ -193,7 +197,7 @@ create table if not exists public.errors (
   id                uuid primary key default gen_random_uuid(),
   user_id           uuid not null default auth.uid() references auth.users(id) on delete cascade,
   client_id         text not null check (char_length(client_id) <= 64),
-  language          text not null references public.languages(code),
+  language_code     text not null references public.languages(code),
   category          text not null check (char_length(category) <= 30),
   label             text check (char_length(label) <= 120),
   source            text check (char_length(source) <= 30),
@@ -217,7 +221,7 @@ create table if not exists public.listening_content (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid not null default auth.uid() references auth.users(id) on delete cascade,
   client_id      text not null check (char_length(client_id) <= 64),
-  language       text not null references public.languages(code),
+  language_code  text not null references public.languages(code),
   title          text check (char_length(title) <= 300),
   url            text check (url is null or url = '' or (url ~* '^https?://' and char_length(url) <= 2000)),
   source         text check (char_length(source) <= 60),
@@ -227,6 +231,10 @@ create table if not exists public.listening_content (
   comprehension  smallint check (comprehension between 0 and 100),
   difficulty     smallint check (difficulty between 1 and 5),
   notes          text check (char_length(notes) <= 5000),
+  topic          text check (char_length(topic) <= 80),
+  accent         text check (char_length(accent) <= 60),
+  speed          text check (speed is null or speed in ('slow', 'moderate', 'normal', 'fast')),
+  has_transcript boolean,
   listened_on    date,
   data           jsonb not null default '{}'::jsonb check (pg_column_size(data) < 16384),
   created_at     timestamptz not null default now(),
@@ -256,7 +264,7 @@ create table if not exists public.productions (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
   client_id    text not null check (char_length(client_id) <= 64),
-  language     text not null references public.languages(code),
+  language_code text not null references public.languages(code),
   kind         text not null check (kind in ('writing','speaking')),
   prompt_id    text check (char_length(prompt_id) <= 120),
   title        text check (char_length(title) <= 200),
@@ -275,12 +283,12 @@ create table if not exists public.productions (
 create table if not exists public.daily_plans (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  language    text not null references public.languages(code),
+  language_code text not null references public.languages(code),
   plan_date   date not null,
   data        jsonb not null check (pg_column_size(data) < 65536),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
-  unique (user_id, language, plan_date)
+  unique (user_id, language_code, plan_date)
 );
 
 -- 2.13 Placement test results
@@ -288,7 +296,7 @@ create table if not exists public.assessments (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid not null default auth.uid() references auth.users(id) on delete cascade,
   client_id      text not null check (char_length(client_id) <= 64),
-  language       text not null references public.languages(code),
+  language_code  text not null references public.languages(code),
   taken_on       date not null,
   overall_level  text check (public.is_cefr_sub(overall_level)),
   result         jsonb not null check (pg_column_size(result) < 65536),
@@ -301,7 +309,7 @@ create table if not exists public.weekly_reviews (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
   client_id   text not null check (char_length(client_id) <= 64),
-  language    text not null references public.languages(code),
+  language_code text not null references public.languages(code),
   week_start  date not null,
   review      jsonb not null check (pg_column_size(review) < 65536),
   created_at  timestamptz not null default now(),
@@ -309,21 +317,43 @@ create table if not exists public.weekly_reviews (
 );
 
 -- ---------------------------------------------------------------------------
+-- 2.99 Migration from the first version of this script (safe to re-run)
+--      · the language column is now called language_code in every learning table
+--      · listening_content gained classification columns
+-- ---------------------------------------------------------------------------
+do $$
+declare t text;
+begin
+  foreach t in array array['language_profiles','vocabulary','vocabulary_reviews','grammar_progress','study_sessions',
+                           'errors','listening_content','productions','daily_plans','assessments','weekly_reviews']
+  loop
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = t and column_name = 'language')
+       and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = t and column_name = 'language_code') then
+      execute format('alter table public.%I rename column language to language_code', t);
+    end if;
+  end loop;
+end $$;
+alter table public.listening_content add column if not exists topic text check (char_length(topic) <= 80);
+alter table public.listening_content add column if not exists accent text check (char_length(accent) <= 60);
+alter table public.listening_content add column if not exists speed text check (speed is null or speed in ('slow', 'moderate', 'normal', 'fast'));
+alter table public.listening_content add column if not exists has_transcript boolean;
+
+-- ---------------------------------------------------------------------------
 -- 3. Indexes (every RLS check filters on user_id; most queries also on language/dates)
 -- ---------------------------------------------------------------------------
 create index if not exists language_profiles_user_idx   on public.language_profiles (user_id);
-create index if not exists vocabulary_user_lang_due_idx on public.vocabulary (user_id, language, next_review);
+create index if not exists vocabulary_user_lang_due_idx on public.vocabulary (user_id, language_code, next_review);
 create index if not exists vocab_reviews_user_time_idx  on public.vocabulary_reviews (user_id, reviewed_at desc);
 create index if not exists vocab_reviews_vocab_idx      on public.vocabulary_reviews (vocabulary_id);
-create index if not exists grammar_user_lang_due_idx    on public.grammar_progress (user_id, language, next_review);
-create index if not exists sessions_user_lang_date_idx  on public.study_sessions (user_id, language, session_date desc);
-create index if not exists errors_user_lang_date_idx    on public.errors (user_id, language, error_date desc);
-create index if not exists listening_user_lang_idx      on public.listening_content (user_id, language, listened_on desc);
+create index if not exists grammar_user_lang_due_idx    on public.grammar_progress (user_id, language_code, next_review);
+create index if not exists sessions_user_lang_date_idx  on public.study_sessions (user_id, language_code, session_date desc);
+create index if not exists errors_user_lang_date_idx    on public.errors (user_id, language_code, error_date desc);
+create index if not exists listening_user_lang_idx      on public.listening_content (user_id, language_code, listened_on desc);
 create index if not exists schedule_user_date_idx       on public.work_schedule (user_id, date);
-create index if not exists productions_user_lang_idx    on public.productions (user_id, language, produced_on desc);
-create index if not exists plans_user_lang_date_idx     on public.daily_plans (user_id, language, plan_date desc);
-create index if not exists assessments_user_lang_idx    on public.assessments (user_id, language);
-create index if not exists reviews_user_lang_idx        on public.weekly_reviews (user_id, language);
+create index if not exists productions_user_lang_idx    on public.productions (user_id, language_code, produced_on desc);
+create index if not exists plans_user_lang_date_idx     on public.daily_plans (user_id, language_code, plan_date desc);
+create index if not exists assessments_user_lang_idx    on public.assessments (user_id, language_code);
+create index if not exists reviews_user_lang_idx        on public.weekly_reviews (user_id, language_code);
 
 -- ---------------------------------------------------------------------------
 -- 4. Automatic timestamps
@@ -352,7 +382,7 @@ begin
   if new.vocabulary_id is null then
     select v.id into new.vocabulary_id
     from public.vocabulary v
-    where v.user_id = new.user_id and v.language = new.language and v.item_key = new.item_key;
+    where v.user_id = new.user_id and v.language_code = new.language_code and v.item_key = new.item_key;
   end if;
   return new;
 end;

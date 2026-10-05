@@ -640,13 +640,13 @@
     const sug = p.suggestion || { type: 'Authentic audio', desc: 'Any podcast, video or radio at your level', min: s.item.minutes || 20 };
     const lvl = p.level || U.LEVELS[LOS.learn.targetLevelIdx(s.code, 'listening')];
     const checks = new Set();
-    const form = { title: '', url: '', minutes: sug.min || s.item.minutes || 20, level: lvl, comp: 70, diff: 3, words: '', notes: '' };
+    const form = { title: '', url: '', minutes: sug.min || s.item.minutes || 20, level: lvl, comp: 70, diff: 3, words: '', notes: '', topic: sug.topic || '', accent: sug.accent || '', speed: ['slow', 'moderate', 'normal', 'fast'].includes(sug.speed) ? sug.speed : '', transcript: !!sug.transcript };
     function draw() {
       const id = ytId(form.url);
       s.progress(checks.size / 6);
       s.render(`<div class="stage-label">Listening · authentic content</div>
         <div class="player"><div class="between"><div><div class="ttl">${esc(sug.type)}</div><div class="meta">${esc(sug.desc)}</div></div><span class="pill">${esc(lvl)}</span></div>
-        <div class="cluster mt-16 small muted"><span>${icon('clock', 14)} ${sug.min || s.item.minutes} min</span><span>${icon('target', 14)} ${esc(p.objective || LOS.shared.LISTENING_STAGE[lvl].objective)}</span></div></div>
+        <div class="cluster mt-16 small muted"><span>${icon('clock', 14)} ${sug.min || s.item.minutes} min</span>${sug.accent ? `<span>${icon('globe', 14)} ${esc(sug.accent)}</span>` : ''}${sug.speed ? `<span>${icon('activity', 14)} ${esc(sug.speed)}</span>` : ''}${sug.transcript != null ? `<span>${icon('reading', 14)} ${sug.transcript ? 'transcript available' : 'no transcript'}</span>` : ''}<span>${icon('target', 14)} ${esc(p.objective || LOS.shared.LISTENING_STAGE[lvl].objective)}</span></div></div>
         <div class="section"><div class="section-head"><h3>What are you listening to?</h3></div>
           <div class="grid grid-2"><div class="field"><label for="f-title">Title</label><input class="input" id="f-title" data-f="title" value="${esc(form.title)}" placeholder="e.g. The future of anaesthesia"></div>
           <div class="field"><label for="f-url">Link (YouTube or other)</label><input class="input" id="f-url" data-f="url" value="${esc(form.url)}" placeholder="https://…" inputmode="url"></div></div>
@@ -657,14 +657,18 @@
         <div class="section"><div class="section-head"><h3>Log it</h3></div>
           <div class="form-grid"><div class="field"><label for="f-min">Duration (min)</label><input class="input" id="f-min" type="number" min="1" max="300" data-f="minutes" value="${form.minutes}"></div>
           <div class="field"><label for="f-lvl">Perceived level</label><select class="select" id="f-lvl" data-f="level">${U.LEVELS.map((l) => `<option ${l === form.level ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-          <div class="field"><label for="f-diff">Difficulty (1–5)</label><input class="input" id="f-diff" type="number" min="1" max="5" data-f="diff" value="${form.diff}"></div></div>
+          <div class="field"><label for="f-diff">Difficulty (1–5)</label><input class="input" id="f-diff" type="number" min="1" max="5" data-f="diff" value="${form.diff}"></div>
+          <div class="field"><label for="f-topic">Topic</label><input class="input" id="f-topic" data-f="topic" maxlength="80" value="${esc(form.topic)}" placeholder="e.g. medicine, politics"></div>
+          <div class="field"><label for="f-accent">Accent</label><input class="input" id="f-accent" data-f="accent" maxlength="60" value="${esc(form.accent)}" placeholder="e.g. Austria, Québec, Andalusia"></div>
+          <div class="field"><label for="f-speed">Speed</label><select class="select" id="f-speed" data-f="speed">${['', 'slow', 'moderate', 'normal', 'fast'].map((v) => `<option value="${v}" ${v === form.speed ? 'selected' : ''}>${v || '—'}</option>`).join('')}</select></div></div>
+          <label class="check small mt-12"><input type="checkbox" data-f="transcript" ${form.transcript ? 'checked' : ''}> Transcript / subtitles in ${esc(s.pack.native)} available</label>
           <div class="field mt-16"><label for="f-comp">How much did you understand? <span class="num" id="compv">${form.comp}%</span></label><input type="range" id="f-comp" min="0" max="100" step="5" data-f="comp" value="${form.comp}"></div>
           <div class="field mt-16"><label for="f-words">New words (one per line: word — meaning)</label><textarea class="textarea" id="f-words" data-f="words" rows="3" placeholder="bottleneck — collo di bottiglia">${esc(form.words)}</textarea></div>
           <div class="field mt-16"><label for="f-notes">Summary or notes (in ${esc(s.pack.name)})</label><textarea class="textarea" id="f-notes" data-f="notes" rows="3">${esc(form.notes)}</textarea></div>
         </div>
         <div class="runner-foot"><span class="faint small">Saved to your listening log</span><button class="btn primary" data-act="save">Save session ${icon('check', 16)}</button></div>`);
       s.body.querySelectorAll('[data-f]').forEach((el) => el.addEventListener('input', () => {
-        form[el.dataset.f] = el.type === 'number' || el.type === 'range' ? +el.value : el.value;
+        form[el.dataset.f] = el.type === 'checkbox' ? el.checked : el.type === 'number' || el.type === 'range' ? +el.value : el.value;
         if (el.dataset.f === 'comp') s.body.querySelector('#compv').textContent = el.value + '%';
         if (el.dataset.f === 'url' && ytId(el.value) !== id) draw();
       }));
@@ -674,7 +678,7 @@
       save() {
         const minutes = U.clamp(+form.minutes || 1, 1, 300);
         const cleanUrl = form.url.trim() && !/^https?:\/\//i.test(form.url.trim()) ? 'https://' + form.url.trim() : form.url.trim();
-        const entry = { id: U.uid('lis'), date: U.today(), title: form.title || sug.desc, url: cleanUrl, minutes, level: form.level, comprehension: form.comp, difficulty: form.diff, steps: [...checks], notes: form.notes, words: [] };
+        const entry = { id: U.uid('lis'), date: U.today(), title: form.title || sug.desc, url: cleanUrl, minutes, level: form.level, comprehension: form.comp, difficulty: form.diff, steps: [...checks], notes: form.notes, words: [], topic: form.topic.trim(), accent: form.accent.trim(), speed: form.speed, transcript: !!form.transcript };
         form.words.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line) => {
           const [w, ...rest] = line.split(/\s+[—–-]\s+|:\s+/);
           const item = LOS.learn.addCustomVocab(s.code, { w: w.trim(), tr: rest.join(' ').trim(), def: rest.join(' ').trim(), l: form.level, src: 'listening' });
@@ -711,6 +715,10 @@
         <div class="between"><div class="stat"><span class="k">This text reads like</span><span class="v" style="font-size:22px">${est.sub}</span></div><div class="stat" style="text-align:right"><span class="k">Words</span><span class="v" style="font-size:22px">${a.words}</span></div></div>
         ${w.keys && w.keys.length ? `<div><div class="eyebrow">Target phrases</div><div class="cluster mt-8">${w.keys.map((k) => `<span class="pill ${a.keysUsed.includes(k) ? 'ok' : 'outline'}">${a.keysUsed.includes(k) ? icon('check', 12) : ''} ${esc(k)}</span>`).join('')}</div></div>` : ''}
         ${a.notes.length ? `<div class="stack small" style="--gap:6px">${a.notes.map((n) => `<div class="muted">· ${esc(n)}</div>`).join('')}</div>` : ''}
+        ${a.register ? `<div><div class="eyebrow">Register</div><div class="small mt-4">${a.register.ok ? `${icon('check', 13)} Consistent with a ${esc(a.register.target)} text.` : `${icon('info', 13)} Not fully consistent with a ${esc(a.register.target)} text — see the notes above.`}</div></div>` : ''}
+        ${a.upgrades && a.upgrades.length ? `<div><div class="eyebrow">Vocabulary you could upgrade</div><div class="stack small mt-8" style="--gap:4px">${a.upgrades.map((u) => `<div><strong>${esc(u.w)}</strong> → ${esc(u.alts.join(', '))}</div>`).join('')}</div></div>` : ''}
+        ${a.nextConnectors && a.nextConnectors.length ? `<div><div class="eyebrow">More advanced version — connectors to try (${esc(a.nextLevel)})</div><div class="cluster mt-8">${a.nextConnectors.map((c) => `<span class="pill outline">${esc(c)}</span>`).join('')}</div></div>` : ''}
+        ${a.review && a.review.length ? `<div><div class="eyebrow">Structures to review</div><div class="stack small mt-8" style="--gap:4px">${a.review.map((t) => `<a href="#/grammar/${esc(t.id)}">${esc(t.title)}</a> <span class="faint">${esc(t.l)}</span>`).join('<br>')}</div></div>` : ''}
         <p class="faint xs">${a._source === 'remote' ? 'Feedback from your AI backend.' : 'Local analysis: rule-based checks for frequent errors, lexical and structural indicators. Connect an AI backend in Settings for full rewriting.'}</p>`;
     }
     function draw() {

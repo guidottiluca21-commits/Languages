@@ -164,6 +164,7 @@
     const subAcc = (sub) => { const l = draft.log.filter((x) => x.sub === sub); return l.length ? l.filter((x) => x.correct).length / l.length : null; };
     const adv = draft.log.filter((x) => U.levelIndex(x.l) >= 4);
     const sub = {
+      comprehension: (() => { const l = draft.log.filter((x) => x.section === 'reading' || x.section === 'listening'); return l.length ? l.filter((x) => x.correct).length / l.length : null; })(),
       register: subAcc('register'),
       naturalness: subAcc('naturalness'),
       complexity: draft.writing ? draft.writing.scores.syntax / 5 : null,
