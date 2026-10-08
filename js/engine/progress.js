@@ -55,7 +55,7 @@
     const gTopics = p.grammar.filter((t) => t.l === lvl);
     const gDone = gTopics.filter((t) => ['familiar', 'mastered'].includes(LOS.learn.topicStatus(code, t.id)));
     const vItems = LOS.learn.vocabItems(code).filter((v) => v.l === lvl);
-    const vDone = vItems.filter((v) => { const s = lang.vocab[v.id]; return s && s.stage >= 3; });
+    const vDone = vItems.filter((v) => { const s = lang.vocab[v.id]; return s && s.stage >= 4; });
     const prodDone = lang.writings.filter((w) => U.levelIndex(w.level) >= B && (w.overall || 0) >= 3.5).length + lang.speakings.filter((w) => U.levelIndex(w.level) >= B && (w.overall || 0) >= 3.5).length;
     const comps = [
       { key: 'skills', label: 'Skill profile', weight: 0.35, value: skillPart, detail: `${U.SKILLS.filter((s) => th[s] != null && th[s] >= B + 1).length}/6 skills already at ${U.LEVELS[Math.min(5, B + 1)]}` },

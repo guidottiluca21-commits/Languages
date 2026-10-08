@@ -182,7 +182,7 @@
       words: nWords, sentences: sents.length, paragraphs, avgLen: U.round(avgLen, 1), mattr: U.round(mattr, 2),
       connectors: conns, advanced: adv, chunks, repeated, keysUsed, keysMissing,
       sentencesOut, issues, errors, hints, regIssues, scores: sc, overall: U.round(U.avg(Object.values(sc)), 1),
-      estTheta: U.round(est, 2), notes, upgrades, nextConnectors, nextLevel: nextLvl, review, register,
+      code, estTheta: U.round(est, 2), notes, upgrades, nextConnectors, nextLevel: nextLvl, review, register,
     };
   }
 

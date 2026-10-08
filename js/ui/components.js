@@ -7,7 +7,7 @@
   const icon = LOS.icon;
 
   const SKILL_ICON = { grammar: 'grammar', vocabulary: 'vocabulary', reading: 'reading', listening: 'listening', writing: 'writing', speaking: 'speaking', think: 'think', review: 'review', scenario: 'medical' };
-  const CAT_OF = { review: 'review', listening: 'listening', grammar: 'study', vocabulary: 'study', reading: 'study', writing: 'study', speaking: 'study', think: 'study', scenario: 'study' };
+  const CAT_OF = { review: 'review', listening: 'listening', grammar: 'study', vocabulary: 'study', reading: 'study', writing: 'study', speaking: 'study', think: 'study', scenario: 'study', micro: 'study', lesson: 'study', remedy: 'review' };
 
   const ui = (LOS.ui = {
     esc, icon, SKILL_ICON, CAT_OF,
@@ -65,7 +65,7 @@
         ${v.ctx ? sec('Usage', `<div class="small muted">${esc(v.ctx)}</div>`) : ''}
         ${list(v.mist).map((m) => `<div class="ff">${icon('errors', 14)} ${esc(m)}</div>`).join('')}
         ${v.ff ? `<div class="ff">${icon('flag', 14)} ${esc(v.ff)}</div>` : ''}
-        ${opts.mastery === false ? '' : `<div class="dict-sec grid grid-2"><div><div class="eyebrow">Level</div><div>${esc(v.l)} · frequency ${'●'.repeat(v.f || 3)}${'○'.repeat(5 - (v.f || 3))}</div></div><div><div class="eyebrow">Mastery</div>${st ? `<div class="mt-4">${ui.bar(LOS.srs.effective(st), 'thin')}</div><div class="faint xs mt-4">${LOS.learn.STAGE_LABEL[st.stage || 0]}${st.assumed ? ' (estimated)' : ''} · next ${U.relDate(st.due)}</div>` : '<div class="faint">Not introduced yet</div>'}</div></div>`}
+        ${opts.mastery === false ? '' : `<div class="dict-sec grid grid-2"><div><div class="eyebrow">Level</div><div>${esc(v.l)} · frequency ${'●'.repeat(v.f || 3)}${'○'.repeat(5 - (v.f || 3))}</div></div><div><div class="eyebrow">Mastery</div>${st ? `<div class="mt-4">${ui.bar(LOS.srs.effective(st), 'thin')}</div><div class="faint xs mt-4">${LOS.learn.STAGE_LABEL[LOS.ped ? LOS.ped.vstage(st) : st.stage || 0]}${st.assumed ? ' (estimated)' : ''} · next ${U.relDate(st.due)}</div>` : '<div class="faint">Not introduced yet</div>'}</div></div>`}
       </div>`;
     },
     langDot(code) { const p = LOS.lang.get(code); return `<span class="lang-dot" style="background:${esc((p && p.color) || 'var(--text-3)')}" aria-hidden="true"></span>`; },

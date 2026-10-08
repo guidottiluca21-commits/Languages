@@ -25,6 +25,7 @@
     { name: 'daily_plans', key: ['language_code', 'plan_date'], conflict: 'user_id,language_code,plan_date' },
     { name: 'assessments', key: ['client_id'], conflict: 'user_id,client_id' },
     { name: 'weekly_reviews', key: ['client_id'], conflict: 'user_id,client_id' },
+    { name: 'learning_tasks', key: ['language_code', 'task_key'], conflict: 'user_id,language_code,task_key' },
   ];
   const BY_NAME = Object.fromEntries(TABLES.map((t) => [t.name, t]));
   const keyOf = (table, row) => BY_NAME[table].key.map((k) => String(row[k])).join('|');
@@ -100,14 +101,14 @@
         listening_level: num(th.listening, 0, 6), writing_level: num(th.writing, 0, 6), speaking_level: num(th.speaking, 0, 6),
         fluency_level: lastA && lastA.sub && lastA.sub.fluency != null ? num(lastA.sub.fluency * 6, 0, 6) : null,
         onboarded: !!L.onboarded, assessed: !!L.assessed, enabled: L.enabled !== false, goals: (L.goals || []).map(String), target_date: date(L.targetDate),
-        data: omit(L, ['code', 'enabled', 'onboarded', 'assessed', 'targetLevel', 'targetDate', 'goals', 'assessments', 'grammar', 'vocab', 'custom', 'errors', 'errorCards', 'sessions', 'listening', 'writings', 'speakings', 'plans', 'reviews', 'reviewLog', 'assessDraft']),
+        data: omit(L, ['code', 'enabled', 'onboarded', 'assessed', 'targetLevel', 'targetDate', 'goals', 'assessments', 'grammar', 'vocab', 'custom', 'errors', 'errorCards', 'sessions', 'listening', 'writings', 'speakings', 'plans', 'reviews', 'reviewLog', 'assessDraft', 'tasks']),
       });
 
       // vocabulary: items being learned + the user's own items
       const custom = Object.fromEntries((L.custom || []).map((c) => [c.id, c]));
       const keys = new Set(Object.keys(L.vocab || {}).concat(Object.keys(custom)));
       keys.forEach((k) => {
-        const item = custom[k] || pack.index.vocab[k];
+        const item = custom[k] || pack.index.vocab[k] || (LOS.ped && LOS.ped.chunkItem(code, k));
         const s = (L.vocab || {})[k];
         if (!item && !s) return;
         const c = !!custom[k];
@@ -116,9 +117,13 @@
           translation: txt(item && item.tr, 500), definition: txt(item && item.def, 1000), example: txt(item && item.ex, 1000),
           part_of_speech: txt(item && item.pos, 60), register: txt(item && item.reg, 30), cefr_level: lvl(item && item.l),
           kind: txt(item && item.k, 30), domain: txt(item && item.d, 30), is_custom: c,
-          stage: s ? int(s.stage || 0, 0, 4) : null, mastery: s ? num(s.mastery || 0, 0, 100) : null, ease_factor: s ? num(s.ease || 2.5, 1, 5) : null,
+          stage: null, learning_stage: s ? int(s.stage || 0, 0, 7) : null, frequency: item ? int(item.f || 3, 1, 5) : null,
+          exposure_count: s && s.exp != null ? int(s.exp, 0, 1e6) : null, successful_recalls: s && s.ok != null ? int(s.ok, 0, 1e6) : null, failed_recalls: s && s.fail != null ? int(s.fail, 0, 1e6) : null, hint_usage: s && s.hints != null ? int(s.hints, 0, 1e6) : null,
+          last_seen: s ? date(s.seen) : null, context_domains: item ? [item.d || 'general'].concat(item.mod ? [item.mod] : []).map((x) => txt(x, 60)) : null,
+          prerequisites: item && item.mod ? [txt(item.mod, 120)] : null,
+          mastery: s ? num(s.mastery || 0, 0, 100) : null, ease_factor: s ? num(s.ease || 2.5, 1, 5) : null,
           interval: s ? int(s.interval || 0, 0, 100000) : null, next_review: s ? date(s.due) : null, last_review: s ? date(s.last) : null,
-          data: { srs: s ? omit(s, ['stage', 'mastery', 'ease', 'interval', 'due', 'last']) : null, custom: c ? omit(item, ['id', 'w', 'tr', 'def', 'ex', 'pos', 'reg', 'l', 'k', 'd', 'custom']) : null },
+          data: { srs: s ? omit(s, ['stage', 'mastery', 'ease', 'interval', 'due', 'last', 'exp', 'ok', 'fail', 'hints', 'seen']) : null, custom: c ? omit(item, ['id', 'w', 'tr', 'def', 'ex', 'pos', 'reg', 'l', 'k', 'd', 'custom']) : null },
         });
       });
       (L.reviewLog || []).forEach((r) => push('vocabulary_reviews', { id: r.id, language_code: code, item_key: String(r.k).slice(0, 200), rating: int(r.r, 0, 3), reviewed_at: iso(r.at) }));
@@ -129,7 +134,8 @@
         push('grammar_progress', {
           language_code: code, topic: topic.slice(0, 120), cefr_level: lvl(t && t.l), mastery: num(g.mastery || 0, 0, 100), ease_factor: num(g.ease || 2.5, 1, 5),
           interval: int(g.interval || 0, 0, 100000), difficulty: int(g.d || 1, 1, 3), last_review: date(g.last), next_review: date(g.due), notes: txt(g.notes, 2000),
-          data: omit(g, ['mastery', 'ease', 'interval', 'd', 'last', 'due', 'notes']),
+          learning_stage: g.gs == null ? null : int(g.gs, 0, 6), prerequisites: t && t.pre && t.pre.length ? t.pre.map((x) => txt(x, 120)) : null,
+          data: omit(g, ['mastery', 'ease', 'interval', 'd', 'last', 'due', 'notes', 'gs']),
         });
       });
 
@@ -168,6 +174,17 @@
       Object.keys(L.plans || {}).forEach((d) => { if (date(d)) push('daily_plans', { language_code: code, plan_date: d, data: L.plans[d] }); });
       (L.assessments || []).forEach((a) => push('assessments', { client_id: cid(a, 'asm'), language_code: code, taken_on: date(a.date) || U.today(), overall_level: a.overall ? lvlSub(a.overall.sub) : null, result: a }));
       (L.reviews || []).forEach((r) => push('weekly_reviews', { client_id: cid(r, 'rev'), language_code: code, week_start: date(r.weekStart) || date(r.date) || U.today(), review: r }));
+      Object.keys(L.tasks || {}).forEach((k) => {
+        const t = L.tasks[k];
+        const req = t.req || {};
+        const arr = (a) => (a || []).slice(0, 60).map((x) => txt(x, 200));
+        push('learning_tasks', {
+          language_code: code, task_key: txt(k, 200), kind: txt(t.kind, 30), required_vocabulary: arr(req.v), required_grammar: arr(req.g), required_chunks: arr(req.c),
+          language_level: lvl(t.level), task_complexity: t.complexity == null ? null : int(t.complexity, 1, 5), cognitive_load: t.load == null ? null : int(t.load, 1, 5), output_length: txt(t.out, 60),
+          readiness: t.readiness == null ? null : num(t.readiness, 0, 1), step: int(t.step || 0, 0, 3), attempts: int(t.attempts || 0, 0, 1e6), best_score: t.best == null ? null : num(t.best, 0, 1),
+          last_attempt: date(t.lastAt), data: omit(t, ['kind', 'req', 'level', 'complexity', 'load', 'out', 'readiness', 'step', 'attempts', 'best', 'lastAt']),
+        });
+      });
     });
     return out;
   }
@@ -215,11 +232,14 @@
       if (r.is_custom) {
         lg.custom.push(Object.assign({ id: r.item_key, w: r.word, tr: r.translation || '', def: r.definition || '', ex: r.example || '', pos: r.part_of_speech || '', reg: r.register || 'neutral', l: r.cefr_level || 'B2', k: r.kind || 'word', d: r.domain || 'general', col: [], syn: [], ant: [], ipa: '', f: 3, ctx: '', ff: '' }, (r.data && r.data.custom) || {}, { custom: true }));
       }
-      if (r.stage != null || r.next_review) {
+      if (r.learning_stage != null || r.stage != null || r.next_review) {
+        const OLD = { 0: 1, 1: 1, 2: 2, 3: 3, 4: 6 }; // rows written before Engine 2.0 only have the 0–4 stage
+        const stage = r.learning_stage != null ? r.learning_stage : r.stage != null ? OLD[r.stage] : 0;
         lg.vocab[r.item_key] = Object.assign(LOS.srs.create(), (r.data && r.data.srs) || {}, {
-          stage: r.stage || 0, mastery: r.mastery == null ? 0 : +r.mastery, ease: r.ease_factor == null ? 2.5 : +r.ease_factor,
+          stage, mastery: r.mastery == null ? 0 : +r.mastery, ease: r.ease_factor == null ? 2.5 : +r.ease_factor,
           interval: r.interval || 0, due: r.next_review || null, last: r.last_review || null,
-        });
+        }, r.exposure_count != null ? { exp: r.exposure_count } : {}, r.successful_recalls != null ? { ok: r.successful_recalls } : {}, r.failed_recalls != null ? { fail: r.failed_recalls } : {},
+        r.hint_usage != null ? { hints: r.hint_usage } : {}, r.last_seen ? { seen: r.last_seen } : {});
       }
     });
     (rows.grammar_progress || []).forEach((r) => {
@@ -227,7 +247,7 @@
       L(r.language_code).grammar[r.topic] = Object.assign(LOS.srs.create(), r.data || {}, {
         mastery: r.mastery == null ? 0 : +r.mastery, ease: r.ease_factor == null ? 2.5 : +r.ease_factor, interval: r.interval || 0,
         d: r.difficulty || 1, last: r.last_review || null, due: r.next_review || null,
-      }, r.notes ? { notes: r.notes } : {});
+      }, r.notes ? { notes: r.notes } : {}, r.learning_stage != null ? { gs: r.learning_stage } : {});
     });
     (rows.study_sessions || []).slice().sort((a, b) => String(a.completed_at).localeCompare(String(b.completed_at))).forEach((r) => {
       if (!known(r.language_code)) return;
@@ -256,6 +276,16 @@
     (rows.daily_plans || []).forEach((r) => { if (known(r.language_code)) L(r.language_code).plans[r.plan_date] = r.data; });
     (rows.assessments || []).slice().sort((a, b) => String(a.taken_on).localeCompare(String(b.taken_on))).forEach((r) => { if (known(r.language_code)) L(r.language_code).assessments.push(Object.assign({}, r.result, { id: r.client_id })); });
     (rows.weekly_reviews || []).slice().sort((a, b) => String(a.week_start).localeCompare(String(b.week_start))).forEach((r) => { if (known(r.language_code)) L(r.language_code).reviews.push(Object.assign({}, r.review, { id: r.client_id })); });
+    (rows.learning_tasks || []).forEach((r) => {
+      if (!known(r.language_code)) return;
+      const lg = L(r.language_code);
+      lg.tasks = lg.tasks || {};
+      lg.tasks[r.task_key] = Object.assign({}, r.data || {}, {
+        kind: r.kind, req: { v: r.required_vocabulary || [], c: r.required_chunks || [], g: r.required_grammar || [] },
+        level: r.language_level, complexity: r.task_complexity, load: r.cognitive_load, out: r.output_length,
+        step: r.step || 0, attempts: r.attempts || 0, best: r.best_score == null ? null : +r.best_score,
+      }, r.readiness != null ? { readiness: +r.readiness } : {}, r.last_attempt ? { lastAt: r.last_attempt } : {});
+    });
     return st;
   }
 

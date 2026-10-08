@@ -192,15 +192,15 @@
     p.grammar.forEach((t) => {
       if (lang.grammar[t.id] && lang.grammar[t.id].last) return;
       const li = U.levelIndex(t.l);
-      if (missedTopics.includes(t.id)) lang.grammar[t.id] = LOS.srs.create({ d: 1, seen: [], mastery: 30, interval: 1, last: today, due: today, flagged: true });
-      else if (li < gBand - 1) lang.grammar[t.id] = LOS.srs.create({ d: 3, seen: [], mastery: 82, interval: 30, last: today, due: U.addDays(today, 14 + Math.floor(Math.random() * 50)), assumed: true });
-      else if (li === gBand - 1) lang.grammar[t.id] = LOS.srs.create({ d: 2, seen: [], mastery: 62, interval: 7, last: today, due: U.addDays(today, 2 + Math.floor(Math.random() * 14)), assumed: true });
+      if (missedTopics.includes(t.id)) lang.grammar[t.id] = LOS.srs.create({ d: 1, seen: [], mastery: 30, interval: 1, last: today, due: today, flagged: true, gs: 0 }); // missed in the test → taught again first
+      else if (li < gBand - 1) lang.grammar[t.id] = LOS.srs.create({ d: 3, seen: [], mastery: 82, interval: 30, last: today, due: U.addDays(today, 14 + Math.floor(Math.random() * 50)), assumed: true, gs: 4 });
+      else if (li === gBand - 1) lang.grammar[t.id] = LOS.srs.create({ d: 2, seen: [], mastery: 62, interval: 7, last: today, due: U.addDays(today, 2 + Math.floor(Math.random() * 14)), assumed: true, gs: 3 });
     });
     LOS.learn.vocabItems(code).forEach((v) => {
       if (lang.vocab[v.id]) return;
       const li = U.levelIndex(v.l);
-      if (li < vBand - 1) lang.vocab[v.id] = LOS.srs.create({ stage: 4, mastery: 80, interval: 60, last: today, due: U.addDays(today, 20 + Math.floor(Math.random() * 70)), assumed: true, introduced: today, stableAt: null });
-      else if (li === vBand - 1) lang.vocab[v.id] = LOS.srs.create({ stage: 2, mastery: 50, interval: 5, last: today, due: U.addDays(today, 1 + Math.floor(Math.random() * 12)), assumed: true, introduced: today });
+      if (li < vBand - 1) lang.vocab[v.id] = LOS.srs.create({ stage: 5, mastery: 80, interval: 60, last: today, due: U.addDays(today, 20 + Math.floor(Math.random() * 70)), assumed: true, introduced: today, stableAt: null });
+      else if (li === vBand - 1) lang.vocab[v.id] = LOS.srs.create({ stage: 3, mastery: 50, interval: 5, last: today, due: U.addDays(today, 1 + Math.floor(Math.random() * 12)), assumed: true, introduced: today });
     });
 
     const frontier = LOS.learn.pickTopic(code, { rnd: () => 0.5 });

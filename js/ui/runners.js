@@ -36,7 +36,11 @@
     s.progress = (f) => { fill.style.width = Math.round(U.clamp(f, 0, 1) * 100) + '%'; };
     s.render = (html) => { s.body.innerHTML = html; ui.animateBars(s.body); const f = s.body.querySelector('[autofocus]'); if (f) setTimeout(() => f.focus(), 20); };
     s.elapsedMin = () => (Date.now() - s.t0) / 60000;
-    s.on = (handlers) => ui.delegate(s.body, handlers);
+    // One delegated listener per session; later registrations override handlers with the same name
+    // (a step that re-registers "next" must not fire the previous step's "next" too).
+    const acts = {};
+    let bound = false;
+    s.on = (handlers) => { Object.assign(acts, handlers); if (!bound) { bound = true; ui.delegate(s.body, acts); } };
     s.fail = (msg) => s.render(ui.empty({ icon: 'errors', title: 'Unable to start', text: esc(msg), action: '<a class="btn" href="#/today">Back to Today</a>' }));
     s.dispose = () => {
       s.timers.forEach(clearInterval);
@@ -173,6 +177,11 @@
   }
 
   function correctionsHTML(analysis, max = 8) {
+    // do not over-correct: beginners see only the most important errors; style and naturalness come from B1/B2 up
+    const pol = analysis.code && LOS.ped ? LOS.ped.correctionPolicy(analysis.code) : { maxErrors: 99, hints: true };
+    max = Math.min(max, pol.maxErrors);
+    const keep = (i) => i.severity === 'error' ? (pol.style || !['naturalness', 'register'].includes(i.cat)) : pol.hints;
+    analysis = Object.assign({}, analysis, { sentencesOut: analysis.sentencesOut.map((x) => Object.assign({}, x, { issues: x.issues.filter(keep), natural: pol.hints ? x.natural : x.corrected })) });
     const withIssues = analysis.sentencesOut.filter((x) => x.issues.length).slice(0, max);
     if (!withIssues.length) return `<p class="muted small">No rule-based issues found. ${LOS.AI.isRemote() ? '' : '<span class="faint">(Local checks cover frequent patterns; an AI backend would catch more.)</span>'}</p>`;
     return withIssues.map((x) => {
@@ -182,8 +191,8 @@
       const hints = x.issues.filter((i) => i.severity !== 'error');
       return `<div class="corr">
         <div class="k">Your sentence</div><div class="yours">${yours}</div>
-        ${x.corrected !== x.original ? `<div class="k mt-8">Corrected version</div><div class="fixed">${esc(x.corrected)}</div>` : ''}
-        ${x.natural !== x.corrected ? `<div class="k mt-8">More natural version</div><div class="fixed">${esc(x.natural)}</div>` : ''}
+        ${x.corrected !== x.original ? `<div class="k mt-8">Correct</div><div class="fixed">${esc(x.corrected)}</div>` : ''}
+        ${x.natural !== x.corrected ? `<div class="k mt-8">More natural / idiomatic</div><div class="fixed">${esc(x.natural)}</div>` : ''}
         <div class="k mt-8">Why?</div>
         ${errs.map((i) => `<div class="why">${icon('errors', 13)} <strong>${esc(i.label)}:</strong> ${esc(i.why)}</div>`).join('')}
         ${hints.map((i) => `<div class="why">${icon('info', 13)} <strong>Check · ${esc(i.label)}:</strong> ${esc(i.why)}</div>`).join('')}
@@ -215,8 +224,9 @@
     const t = s.pack.index.grammar[s.item.payload.topicId];
     if (!t) return s.fail('Grammar topic not found.');
     const drill = new LOS.learn.GrammarDrill(s.code, t.id, s.item.payload.count || 6);
-    let phase = s.item.payload.learn ? 'lesson' : 'drill';
-    let ex = null, res = null, given = null, summary = null, prodText = '', prodAnalysis = null;
+    // Teach before test: a topic never introduced (stage 0) always starts with the lesson.
+    let phase = s.item.payload.learn || drill.gs === 0 ? 'lesson' : 'drill';
+    let ex = null, res = null, given = null, summary = null, prodText = '', prodAnalysis = null, taught = phase === 'lesson', misses = 0;
 
     function draw() {
       if (phase === 'lesson') {
@@ -228,7 +238,7 @@
         s.progress((drill.results.length + (res ? 0 : 0)) / (drill.count + 1));
         const lvl = ['easier', 'core', 'harder'][drill.d - 1];
         let html = `<div class="between"><span class="faint small">${esc(t.title)} · ${t.l}</span><span class="faint xs">Difficulty: ${lvl}</span></div><div class="mt-16">${exerciseHTML(ex, res, given)}</div>`;
-        if (res && res.adapt === 'down') html += `<div class="card soft mt-16 lesson small"><strong>Rule reminder</strong><ul>${t.explain.map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+        if (res && (res.adapt === 'down' || (!res.correct && drill.gs <= 1 && misses === 1))) html += `<div class="card soft mt-16 lesson small"><strong>Rule reminder</strong><ul>${t.explain.map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
         html += res ? nextBtn() : `<div class="runner-foot"><button class="btn ghost sm" data-act="rule">${icon('grammar', 14)} Show the rule</button><span class="faint xs">${ex.t === 'mc' ? 'Keys 1–4' : 'Enter ↵ to check'}</span></div>`;
         s.render(html);
       } else if (phase === 'produce') {
@@ -245,6 +255,7 @@
           <div class="stage-label">Result</div>
           <div class="between"><div><div class="result-big">${Math.round(r.acc * 100)}%</div><div class="muted">accuracy on ${drill.results.length} exercises</div></div>
           <div class="cluster">${ui.statusPill(r.before)} ${icon('arrowRight', 14)} ${ui.statusPill(r.after)}</div></div>
+          ${r.gsAfter != null ? `<div class="small"><span class="muted">Knowledge stage:</span> <strong>${esc(LOS.ped.GSTAGES[r.gsAfter])}</strong>${r.gsAfter > r.gsBefore ? ` <span class="pill accent">↑ from ${esc(LOS.ped.GSTAGES[r.gsBefore])}</span>` : ''}</div>` : ''}
           <div><div class="between small"><span class="muted">Mastery</span><span class="num">${r.mastery}%</span></div><div class="mt-8">${ui.bar(r.mastery, 'thick')}</div></div>
           <div class="grid grid-3"><div class="stat"><span class="k">Next review</span><span class="v" style="font-size:18px">${U.relDate(st.due)}</span></div><div class="stat"><span class="k">Interval</span><span class="v" style="font-size:18px">${st.interval} d</span></div><div class="stat"><span class="k">Next difficulty</span><span class="v" style="font-size:18px">${['Easier', 'Core', 'Harder'][r.d - 1]}</span></div></div>
           ${r.acc < 0.6 ? ui.notice('This topic will come back soon, with simpler exercises first. Missed items were added to your error log.', 'info') : r.acc >= 0.9 ? ui.notice('Strong result — the review interval grows and the next exercises will be harder.', 'progress', 'accent') : ''}
@@ -254,15 +265,16 @@
     s.on({
       start() { phase = 'drill'; draw(); },
       rule() { ui.modal({ title: t.title, body: lessonHTML(s, t) }); },
-      opt(el) { if (res) return; given = el.dataset.v; res = drill.answer(ex, given); draw(); },
-      submit() { if (res) return; given = s.body.querySelector('#ans').value; if (!given.trim()) return; res = drill.answer(ex, given); draw(); },
+      opt(el) { if (res) return; given = el.dataset.v; res = drill.answer(ex, given); if (!res.correct) misses++; draw(); },
+      submit() { if (res) return; given = s.body.querySelector('#ans').value; if (!given.trim()) return; res = drill.answer(ex, given); if (!res.correct) misses++; draw(); },
       next() { ex = null; res = null; given = null; draw(); },
       async checkProd() { prodText = s.body.querySelector('#prod').value; if (!prodText.trim()) return; const r = await LOS.AI.evaluateAnswer(s.code, { prompt: t.use, answer: prodText, level: t.l }); prodAnalysis = r.analysis || r; draw(); },
       finishDrill() {
         const ta = s.body.querySelector('#prod');
         if (ta) prodText = ta.value;
         if (prodText.trim() && prodAnalysis) logAnalysisErrors(s.code, prodAnalysis, 'grammar');
-        summary = drill.finish({ recovery: false });
+        const produced = !!(prodText.trim() && prodAnalysis && (prodAnalysis.issues || []).filter((x) => x.severity === 'error').length === 0);
+        summary = drill.finish({ recovery: false, taught, produced });
         phase = 'result'; draw();
       },
       done() { s.finish({ score: summary.acc, headline: summary.after === 'mastered' ? 'Topic mastered' : 'Practice complete', summary: [`${t.title}: ${Math.round(summary.acc * 100)}% accuracy`, `Status: ${LOS.srs.STATUS_LABEL[summary.after]} · next review ${U.relDate(drill.state.due)}`] }); },
@@ -700,8 +712,9 @@
   R.writing = function (s) {
     const pid = s.item.payload.promptId;
     const free = !pid || pid === 'free';
-    const w = free ? { id: 'free', l: U.LEVELS[LOS.learn.targetLevelIdx(s.code, 'writing')], genre: 'Free writing', reg: 'neutral', title: 'Free writing', p: s.item.payload.text || 'Write about anything: your day, a case, an opinion. Aim for clarity and natural phrasing.', words: [80, 300], keys: [] } : s.pack.writing.find((x) => x.id === pid);
+    let w = free ? { id: 'free', l: U.LEVELS[LOS.learn.targetLevelIdx(s.code, 'writing')], genre: 'Free writing', reg: 'neutral', title: 'Free writing', p: s.item.payload.text || 'Write about anything: your day, a case, an opinion. Aim for clarity and natural phrasing.', words: [80, 300], keys: [] } : s.pack.writing.find((x) => x.id === pid);
     if (!w) return s.fail('Writing prompt not found.');
+    if (s.item.payload.task) Object.assign(w = Object.assign({}, w), s.item.payload.task); // scaled by the production ladder
     const draftKey = `los:draft:${s.code}:${w.id}`;
     let text = '';
     try { text = localStorage.getItem(draftKey) || ''; } catch (e) { /* ignore */ }
@@ -848,8 +861,9 @@
   }
 
   R.speaking = function (s) {
-    const t = s.pack.speaking.find((x) => x.id === s.item.payload.taskId);
+    let t = s.pack.speaking.find((x) => x.id === s.item.payload.taskId);
     if (!t) return s.fail('Speaking task not found.');
+    if (s.item.payload.task) t = Object.assign({}, t, s.item.payload.task); // scaled by the production ladder
     const core = speakingCore(s, t, {
       onSave({ transcript, secs, ratings, overall }) {
         s.lang.speakings.unshift({ id: U.uid('spk'), date: U.today(), taskId: t.id, title: t.title, level: t.l, transcript, secs, ratings, overall });
@@ -1025,6 +1039,7 @@
    * ====================================================================== */
   LOS.run = {
     runners: R,
+    helpers: { exerciseHTML, feedbackHTML, nextBtn, correctionsHTML, logAnalysisErrors, speakingCore, micController, lessonHTML, blank, createSession },
     start(root, opts) {
       const s = createSession(root, opts);
       const r = R[opts.item.type];

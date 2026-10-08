@@ -123,12 +123,17 @@
       this.badRun = 0;
       this.med = medicalPriority(code) > 0.3;
       this.events = []; // "difficulty up", "simplified" messages for the UI
+      // Engine 2.0: exercise types follow the topic's learning stage (recognition before transformation)
+      this.gs = LOS.ped.gstage(this.state);
+      this.types = LOS.ped.grammarTypes(this.gs);
+      if (!this.topic.x.some((x) => this.types.includes(x.t))) this.types = this.types.concat(['gap']);
+      this.count = Math.max(1, Math.min(this.count, this.topic.x.filter((x) => this.types.includes(x.t)).length + 1));
     }
     next() {
       if (this.retry.length && this.retry[0].after <= this.results.length) return this.retry.shift().ex;
       if (this.results.length >= this.count && !this.retry.length) return null;
       const recent = new Set(this.state.seen || []);
-      const pool = this.topic.x.filter((x) => !this.used.has(x));
+      const pool = this.topic.x.filter((x) => !this.used.has(x) && this.types.includes(x.t));
       if (!pool.length) return this.retry.length ? this.retry.shift().ex : null;
       const scored = pool.map((x) => ({ x, s: Math.abs((x.d || 1) - this.d) * 2 + (recent.has(this.topic.x.indexOf(x)) ? 0.8 : 0) - (this.med && x.m ? 0.5 : 0) + Math.random() * 0.4 }));
       scored.sort((a, b) => a.s - b.s);
@@ -139,7 +144,7 @@
     answer(ex, input) {
       const res = checkAnswer(ex, input, this.code);
       const lang = L(this.code);
-      this.results.push({ correct: res.correct, close: res.close, d: ex.d || 1 });
+      this.results.push({ correct: res.correct, close: res.close, d: ex.d || 1, t: ex.t });
       this.state.attempts = (this.state.attempts || 0) + 1;
       if (res.correct) this.state.correct = (this.state.correct || 0) + 1;
       const b = U.levelIndex(this.topic.l) + 0.3 + 0.25 * ((ex.d || 1) - 1);
@@ -175,23 +180,23 @@
       if (after !== 'mastered' && this.state.masteredAt && LOS.srs.effective(this.state) < 70) delete this.state.masteredAt;
       // resolve errors linked to this topic after a strong session
       if (acc >= 0.85) L(this.code).errors.forEach((e) => { if (e.topic === this.topic.id && !e.resolved) e.improved = (e.improved || 0) + 1; });
-      return { acc, grade: g, before, after, d: this.d, mastery: Math.round(this.state.mastery) };
+      const gst = LOS.ped.updateGrammarStage(this.code, this.topic.id, this.results, { taught: !!opts.taught, produced: !!opts.produced });
+      return { acc, grade: g, before, after, d: this.d, mastery: Math.round(this.state.mastery), gsBefore: gst.before, gsAfter: gst.after };
     }
   }
 
   /* ------------------------------------------------------------------ *
    * Vocabulary
    * ------------------------------------------------------------------ */
-  const STAGE_LABEL = ['New', 'Recognition', 'Recall', 'Production', 'Automatic'];
-  const STAGE_MIN_INTERVAL = [0, 0, 1, 3, 7];
+  const STAGE_LABEL = ['Unseen', 'Exposed', 'Recognized', 'Recalled', 'Controlled production', 'Guided production', 'Spontaneous use', 'Automatic'];
   function vocabItems(code) { return P(code).vocab.concat(L(code).custom || []); }
-  function vocabItem(code, id) { return P(code).index.vocab[id] || (L(code).custom || []).find((v) => v.id === id); }
+  function vocabItem(code, id) { return P(code).index.vocab[id] || (L(code).custom || []).find((v) => v.id === id) || (LOS.ped && LOS.ped.chunkItem(code, id)); }
   function vocabState(code, id) { return L(code).vocab[id]; }
 
   function dueVocab(code, date = U.today()) {
     const lang = L(code);
     return Object.keys(lang.vocab)
-      .filter((id) => vocabItem(code, id) && LOS.srs.isDue(lang.vocab[id], date))
+      .filter((id) => LOS.ped.vstage(lang.vocab[id]) >= 1 && vocabItem(code, id) && LOS.srs.isDue(lang.vocab[id], date))
       .sort((a, b) => LOS.srs.priority(lang.vocab[b], date) - LOS.srs.priority(lang.vocab[a], date));
   }
 
@@ -216,9 +221,11 @@
     const rnd = opts.rnd || Math.random;
     const cands = vocabItems(code).filter((v) => !lang.vocab[v.id]).map((v) => {
       const li = U.levelIndex(v.l);
-      let s = li === band + 1 ? 3 : li === band ? 2.6 : li === band + 2 ? 1 : li < band ? 0.6 : 0.2;
-      s += (v.f || 3) * 0.35;
-      if (['collocation', 'chunk', 'phrasal', 'idiom', 'expression'].includes(v.k)) s += 0.8;
+      // CEFR + real-world usefulness: a frequent B1 chunk beats an obscure C1 word; idioms only near level
+      let s = li === band + 1 ? 2.6 : li === band ? 2.8 : li === band + 2 ? 0.6 : li < band ? 1.2 : -1.5;
+      s += ((v.f || 3) - 3) * 0.9;
+      if (['collocation', 'chunk', 'phrasal', 'expression'].includes(v.k)) s += 1.1;
+      if (v.k === 'idiom') s += li <= band ? 0.4 : li === band + 1 ? -0.3 : -2;
       if (v.d === 'medical') s += med * 3;
       if (v.d === 'professional') s += pro * 2.5;
       if (v.custom) s += 5;
@@ -233,16 +240,36 @@
 
   function introduceVocab(code, ids, src = 'session') {
     const lang = L(code);
-    ids.forEach((id) => {
-      if (!lang.vocab[id]) lang.vocab[id] = LOS.srs.create({ stage: 0, introduced: U.today(), src });
-    });
+    LOS.ped.expose(code, ids.filter((id) => !lang.vocab[id] || LOS.ped.vstage(lang.vocab[id]) === 0), src);
   }
 
-  /** Builds a review card appropriate to the item's acquisition stage. */
+  /** Where an item occurs in a sentence: {before, after, target} or null.
+   * Nouns learnt with their article (der Tisch, la voiture) are found with the article actually used in
+   * the sentence (den Tisch, einem Tisch, la voiture…) — the case form is part of what is practised. */
+  function anchor(code, v, ex) {
+    ex = ex || '';
+    const idx = ex.toLowerCase().indexOf(v.w.toLowerCase());
+    if (idx >= 0) return { before: ex.slice(0, idx), after: ex.slice(idx + v.w.length), target: ex.slice(idx, idx + v.w.length) };
+    const parts = v.w.split(' ');
+    const arts = P(code).articles || [];
+    if (parts.length > 1 && arts.includes(parts[0].toLowerCase().replace(/['’]$/, ''))) {
+      const noun = parts.slice(1).join(' ');
+      const det = arts.concat(['kein', 'keine', 'keinen', 'keinem', 'keiner', 'mein', 'meine', 'meinen', 'meinem', 'meiner', 'ihr', 'ihre', 'ihren', 'ihrem', 'unser', 'unsere', 'unseren', 'dieser', 'diese', 'diesen', 'diesem', 'au', 'aux', 'du', 'des', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'votre', 'vos', 'notre', 'leur', 'ce', 'cet', 'cette', 'ces', "l'", "d'"]).map((x) => x.replace(/'/g, "['’]")).join('|');
+      const m = new RegExp('(?:^|[^\\p{L}])((?:(?:' + det + ')\\s?)?' + noun.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\p{L}*)', 'iu').exec(ex);
+      if (m) { const word = m[1]; const j = m.index + m[0].length - word.length; return { before: ex.slice(0, j), after: ex.slice(j + word.length), target: word }; }
+      return null;
+    }
+    // shorter anchor (first word of a chunk, e.g. inflected verbs)
+    const head = v.w.split(' ')[0];
+    const j = head.length > 3 ? ex.toLowerCase().indexOf(head.toLowerCase().slice(0, -1)) : -1;
+    if (j >= 0) { const end = ex.indexOf(' ', j); const word = ex.slice(j, end < 0 ? undefined : end).replace(/[.,;!?]$/, ''); return { before: ex.slice(0, j), after: ex.slice(j + word.length), target: word }; }
+    return null;
+  }
+
+  /** Compatibility card (older views): recognition / recall / production / automatic from the 0–7 stage. */
   function vocabCard(code, id, rnd = Math.random) {
     const v = vocabItem(code, id);
-    const st = vocabState(code, id) || { stage: 0 };
-    const stage = st.stage || 0;
+    const stage = LOS.ped.vstage(vocabState(code, id));
     if (stage <= 1) {
       const pool = vocabItems(code).filter((x) => x.id !== id && x.tr && x.tr !== v.tr);
       const same = pool.filter((x) => x.k === v.k);
@@ -251,45 +278,20 @@
       return { mode: 'recognition', v, options, answer: options.indexOf(v.tr) };
     }
     if (stage === 2) return { mode: 'recall', v };
-    if (stage === 3) {
-      const ex = v.ex || '';
-      const idx = ex.toLowerCase().indexOf(v.w.toLowerCase());
-      if (idx >= 0) return { mode: 'production', v, before: ex.slice(0, idx), after: ex.slice(idx + v.w.length), hint: v.w.charAt(0) };
-      // nouns learnt with their article (der Tisch, la voiture): find the noun and take the article actually used
-      // in the example (den Tisch, einem Tisch, la voiture…) — the case form is part of what is practised.
-      const parts = v.w.split(' ');
-      const arts = P(code).articles || [];
-      if (parts.length > 1 && arts.includes(parts[0].toLowerCase().replace(/['’]$/, ''))) {
-        const noun = parts.slice(1).join(' ');
-        const det = arts.concat(['kein', 'keine', 'keinen', 'keinem', 'keiner', 'mein', 'meine', 'meinen', 'meinem', 'meiner', 'ihr', 'ihre', 'ihren', 'ihrem', 'unser', 'unsere', 'unseren', 'dieser', 'diese', 'diesen', 'diesem', 'au', 'aux', 'du', 'des', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'votre', 'vos', 'notre', 'leur', 'ce', 'cet', 'cette', 'ces', "l'", "d'"]).map((x) => x.replace(/'/g, "['’]")).join('|');
-        const m = new RegExp('(?:^|[^\\p{L}])((?:(?:' + det + ')\\s?)?' + noun.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\p{L}*)', 'iu').exec(ex);
-        if (m) { const word = m[1]; const j = m.index + m[0].length - word.length; return { mode: 'production', v, before: ex.slice(0, j), after: ex.slice(j + word.length), hint: word.charAt(0), target: word }; }
-        return { mode: 'recall', v };
-      }
-      // try a shorter anchor (first word of a chunk, e.g. inflected verbs)
-      const head = v.w.split(' ')[0];
-      const j = head.length > 3 ? ex.toLowerCase().indexOf(head.toLowerCase().slice(0, -1)) : -1;
-      if (j >= 0) { const end = ex.indexOf(' ', j); const word = ex.slice(j, end < 0 ? undefined : end).replace(/[.,;!?]$/, ''); return { mode: 'production', v, before: ex.slice(0, j), after: ex.slice(j + word.length), hint: word.charAt(0), target: word }; }
-      return { mode: 'recall', v };
+    if (stage <= 4) {
+      const a = anchor(code, v, v.ex);
+      if (!a) return { mode: 'recall', v };
+      return { mode: 'production', v, before: a.before, after: a.after, hint: a.target.charAt(0), target: a.target === v.w ? undefined : a.target };
     }
     return { mode: 'automatic', v };
   }
 
+  /** Compatibility: a 0–3 self-grade becomes an outcome of the Engine 2.0 stage model. */
   function gradeVocab(code, id, g, opts = {}) {
-    const lang = L(code);
-    const st = lang.vocab[id] || (lang.vocab[id] = LOS.srs.create({ stage: 0, introduced: U.today() }));
-    const prevStage = st.stage || 0;
-    LOS.srs.grade(st, g, U.today(), opts.recovery ? { maxInterval: 7 } : {});
-    lang.reviewLog = (lang.reviewLog || []).concat([{ id: U.uuid(), k: id, r: g, at: Date.now() }]).slice(-2000);
-    if (g >= 2) {
-      if (prevStage < 4 && (prevStage < 2 || st.interval >= STAGE_MIN_INTERVAL[prevStage + 1] || g === 3)) st.stage = prevStage + 1;
-    } else if (g === 0) st.stage = Math.max(1, prevStage - 1);
-    else if (prevStage === 0) st.stage = 1;
-    if (st.stage >= 3 && !st.stableAt) st.stableAt = U.today();
-    if (st.assumed && g >= 2) st.assumed = false;
-    const v = vocabItem(code, id);
-    if (v && prevStage >= 2) LOS.skills.update(lang, 'vocabulary', U.levelIndex(v.l) + 0.5, g >= 2 ? 1 : g === 1 ? 0.6 : 0, 0.012);
-    if (g === 0 && prevStage >= 2 && v) recordError(code, { src: 'vocabulary', cat: v.k === 'collocation' ? 'collocation' : 'vocabulary', label: v.k === 'word' ? 'Vocabulary recall' : 'Chunks & collocations', wrong: '', right: v.w, note: v.def, vocab: id, quiet: true });
+    const outcome = ['wrong', 'hint', 'hesitant', 'easy'][U.clamp(g, 0, 3)];
+    const st = LOS.ped.ensureState(code, id);
+    if (LOS.ped.vstage(st) === 0) LOS.ped.expose(code, [id]);
+    LOS.ped.recordVocab(code, id, outcome, LOS.ped.vstage(st), opts);
     return st;
   }
 
@@ -364,8 +366,8 @@
     { id: 'first', label: 'First session', test: (lang) => lang.sessions.length >= 1 },
     { id: 'week', label: '7 days of continuity', test: () => streak() >= 7 },
     { id: 'month', label: '30 days of continuity', test: () => streak() >= 30 },
-    { id: 'words50', label: '50 stable words & chunks', test: (lang) => Object.values(lang.vocab).filter((v) => v.stage >= 3 && !v.assumed).length >= 50 },
-    { id: 'words200', label: '200 stable words & chunks', test: (lang) => Object.values(lang.vocab).filter((v) => v.stage >= 3 && !v.assumed).length >= 200 },
+    { id: 'words50', label: '50 stable words & chunks', test: (lang) => Object.values(lang.vocab).filter((v) => v.stage >= 4 && !v.assumed).length >= 50 },
+    { id: 'words200', label: '200 stable words & chunks', test: (lang) => Object.values(lang.vocab).filter((v) => v.stage >= 4 && !v.assumed).length >= 200 },
     { id: 'grammar10', label: '10 grammar topics mastered', test: (lang) => Object.values(lang.grammar).filter((g) => g.masteredAt).length >= 10 },
     { id: 'listen10h', label: '10 hours of listening', test: (lang) => U.sum(lang.sessions.filter((s) => s.skill === 'listening').map((s) => s.minutes)) >= 600 },
     { id: 'writer', label: '10 writing tasks', test: (lang) => lang.writings.length >= 10 },
@@ -477,7 +479,7 @@
   LOS.learn = {
     checkAnswer, sentenceFor,
     topicState, topicStatus, grammarList, pickTopic, prereqsMet, errorPressure, GrammarDrill,
-    STAGE_LABEL, vocabItems, vocabItem, vocabState, dueVocab, newVocabCandidates, introduceVocab, vocabCard, gradeVocab, addCustomVocab,
+    STAGE_LABEL, vocabItems, vocabItem, vocabState, dueVocab, newVocabCandidates, introduceVocab, vocabCard, gradeVocab, addCustomVocab, anchor,
     recordError, errorStats, dueErrorCards, gradeErrorCard,
     ACHIEVEMENTS, recordSession, minutesByDate, studyDates, streak,
     medicalPriority, proPriority, targetLevelIdx, pickText, pickWriting, pickSpeaking, pickThink, pickScenario,

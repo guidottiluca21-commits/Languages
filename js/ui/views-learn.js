@@ -80,7 +80,7 @@
   function vocabStatus(st) {
     if (!st) return 'new';
     if (st.assumed) return 'known';
-    if ((st.stage || 0) >= 3) return 'stable';
+    if (LOS.ped.vstage(st) >= 4) return 'stable';
     return 'learning';
   }
   function openVocab(id) {
@@ -107,21 +107,30 @@
       const vs = (viewState.vocab = viewState.vocab || { tab: 'overview', q: '', status: 'all', level: 'all', kind: 'all', dom: 'all' });
       if (params[0] === 'add') vs.tab = 'add';
       const L = lang();
-      const items = LOS.learn.vocabItems(code());
+      const base = LOS.learn.vocabItems(code());
+      const baseIds = new Set(base.map((v) => v.id));
+      // module words, collocations and expressions are taught as chunks too (medical / professional domains)
+      const items = base.concat(Object.values(LOS.ped.chunks(code())).filter((c) => !baseIds.has(c.id) && (c.tr || c.def || L.vocab[c.id])));
       const due = LOS.learn.dueVocab(code()).length;
       const states = Object.values(L.vocab);
-      const learning = states.filter((s) => !s.assumed && (s.stage || 0) < 3).length;
-      const stable = states.filter((s) => !s.assumed && (s.stage || 0) >= 3).length;
-      const auto = states.filter((s) => !s.assumed && (s.stage || 0) >= 4).length;
+      const vst = (s) => LOS.ped.vstage(s);
+      const learning = states.filter((s) => !s.assumed && vst(s) >= 1 && vst(s) < 4).length;
+      const stable = states.filter((s) => !s.assumed && vst(s) >= 4).length;
+      const auto = states.filter((s) => !s.assumed && vst(s) >= 6).length;
+      const dist = [1, 2, 3, 4, 5, 6, 7].map((sg) => states.filter((s) => !s.assumed && vst(s) === sg).length);
+      const distTot = Math.max(1, U.sum(dist));
+      const STAGE_COL = ['', 'var(--border-strong)', 'var(--text-3)', 'var(--accent)', 'var(--accent-text)', 'var(--success)', 'var(--success)', 'var(--text)'];
       const fresh = items.filter((v) => !L.vocab[v.id]).length;
       let body = '';
       if (vs.tab === 'overview') {
         body = `<div class="grid grid-2" style="--gap:16px">
           <div class="card"><div class="eyebrow">Spaced review</div><div class="result-big mt-8">${due}</div><p class="muted small">items due today — recognition, recall, production or automatic use depending on their stage.</p><a class="btn primary mt-16" href="#/practice/review/all">${icon('review', 15)} Review now</a></div>
           <div class="card"><div class="eyebrow">New material</div><div class="result-big mt-8">${fresh}</div><p class="muted small">items not yet introduced, chosen by your level, goals and frequency. Chunks and collocations first.</p><a class="btn mt-16" href="#/practice/vocab/new">${icon('plus', 15)} Learn 6 new items</a></div></div>
-          <div class="section"><div class="section-head"><h3>Acquisition pipeline</h3><span class="faint small">Recognition → Recall → Production → Automatic</span></div>
-          <div class="grid grid-4">${[0, 1, 2, 3, 4].slice(1).map((sg) => { const n = states.filter((s) => !s.assumed && (s.stage || 0) === sg).length; return `<div class="stat"><span class="v">${n}</span><span class="k">${LOS.learn.STAGE_LABEL[sg]}</span></div>`; }).join('')}</div>
-          <p class="faint small mt-16">A word counts as learned only from the Production stage onwards. ${stable} items are stable, ${auto} automatic, ${learning} still in progress.</p></div>
+          <div class="section"><div class="section-head"><h3>Knowledge maturity</h3><span class="faint small">see → recognize → recall → use → spontaneous → automatic</span></div>
+          <div class="stage-bar">${dist.map((n, k) => n ? `<i style="width:${(n / distTot) * 100}%;background:${STAGE_COL[k + 1]}" title="${esc(LOS.ped.VSTAGES[k + 1])}: ${n}"></i>` : '').join('')}</div>
+          <div class="grid grid-4 mt-16">${dist.map((n, k) => `<div class="stat"><span class="v">${n}</span><span class="k">${k + 1}. ${esc(LOS.ped.VSTAGES[k + 1])}</span></div>`).join('')}</div>
+          <p class="faint small mt-16">An item counts as learned only from stage 4 (controlled production) onwards: ${stable} learned, ${auto} spontaneous or automatic, ${learning} still in progress. Items move up one step at a time — easy answers advance, hesitation and hints hold, errors step back.</p>
+          <div class="cluster mt-12"><a class="btn sm" href="#/practice/micro/controlled">Controlled practice</a><a class="btn sm" href="#/practice/micro/application">Use it in context</a><a class="btn sm" href="#/practice/micro/dialogue">Mini dialogue</a></div></div>
           <div class="section"><div class="section-head"><h3>Recently added</h3><a class="small" href="#" data-act="tab" data-v="browse">Browse all</a></div><div class="list">${states.length ? Object.keys(L.vocab).filter((id) => !L.vocab[id].assumed).sort((a, b) => (L.vocab[b].introduced || '').localeCompare(L.vocab[a].introduced || '')).slice(0, 8).map((id) => vocabRow(id)).join('') : '<p class="muted small">Nothing yet.</p>'}</div></div>`;
       } else if (vs.tab === 'browse') {
         const q = U.norm(vs.q);
@@ -201,7 +210,7 @@
     const status = vocabStatus(st);
     return `<div class="row clickable" data-act="open" data-id="${esc(id)}" role="button" tabindex="0"><div class="grow"><div class="title">${esc(v.w)} ${v.custom ? `<span class="faint xs">· yours</span>` : ''}</div><div class="meta">${esc(v.tr || v.def)}</div></div>
       <span class="pill outline hide-sm">${esc(LOS.shared.KIND_LABEL[v.k] || v.k)}</span><span class="pill">${esc(v.l)}</span>
-      <span class="faint xs" style="width:86px;text-align:right">${status === 'new' ? 'new' : status === 'known' ? 'known' : LOS.learn.STAGE_LABEL[st.stage || 0]}</span></div>`;
+      <span class="faint xs" style="width:110px;text-align:right">${status === 'new' ? 'new' : status === 'known' ? 'known' : esc(LOS.ped.VSTAGES[LOS.ped.vstage(st)])}</span></div>`;
   }
 
   // Flashcards with swipe (mobile) — reviews introduced items, due first.
@@ -303,6 +312,14 @@
   };
 
   /* ---------------- Writing ---------------- */
+  function ladderStat(kind) {
+    const step = LOS.ped.prodStep(code(), kind);
+    return `<div class="stat"><span class="v">${step}/6</span><span class="k">Production ladder · ${esc(LOS.ped.LADDER[kind][step].label)}</span></div>`;
+  }
+  function readyPill(kind, task) {
+    const rd = LOS.ped.readiness(code(), LOS.ped.taskMeta(code(), kind, task));
+    return rd.ready ? '' : '<span class="pill outline" title="Starts with a short preparation lesson">Prep first</span>';
+  }
   V.writing = {
     title: 'Writing',
     render() {
@@ -315,10 +332,11 @@
       return `<div class="view">
         <div class="page-head"><div><h1>Writing</h1><p class="sub">From messages to nuanced argument. Every text gets corrections ("your sentence → corrected → more natural → why"), eight dimension scores and a level estimate.</p></div>
           <div class="cluster"><a class="btn" href="#/practice/writing/free">${icon('writing', 15)} Free writing</a>${rec ? `<a class="btn primary" href="#/practice/writing/${rec.id}">${icon('play', 14)} Recommended</a>` : ''}</div></div>
-        <div class="stats-row"><div class="stat"><span class="v">${th == null ? '—' : U.thetaInfo(th).sub}</span><span class="k">Writing level</span></div><div class="stat"><span class="v">${L.writings.length}</span><span class="k">Texts written</span></div><div class="stat"><span class="v">${L.writings.length ? U.round(U.avg(L.writings.slice(0, 5).map((w) => w.overall || 0)), 1) : '—'}</span><span class="k">Recent average /5</span></div></div>
+        <div class="stats-row"><div class="stat"><span class="v">${th == null ? '—' : U.thetaInfo(th).sub}</span><span class="k">Writing level</span></div><div class="stat"><span class="v">${L.writings.length}</span><span class="k">Texts written</span></div><div class="stat"><span class="v">${L.writings.length ? U.round(U.avg(L.writings.slice(0, 5).map((w) => w.overall || 0)), 1) : '—'}</span><span class="k">Recent average /5</span></div>${ladderStat('writing')}</div>
+        <p class="faint small mt-8">Tasks start short and grow: one sentence → a few sentences → a paragraph → the full task, as earlier versions go well. If a task needs language you have not learned yet, it starts with a short preparation lesson.</p>
         ${rec ? `<a class="card card-link mt-32" href="#/practice/writing/${rec.id}"><div class="eyebrow">Recommended prompt</div><div class="between mt-8"><h2>${esc(rec.title)}</h2><span class="pill">${rec.l}</span></div><p class="muted mt-8">${esc(rec.p)}</p><div class="cluster mt-12"><span class="pill outline">${esc(rec.genre)}</span><span class="faint small">${rec.words[0]}–${rec.words[1]} words</span></div></a>` : ''}
         <div class="section"><div class="section-head"><h2>Prompts</h2>${ui.chips('wlevel', [['all', 'All']].concat(U.LEVELS.map((l) => [l, l])), vs.level)}</div>
-          <div class="list">${list.map((w) => `<a class="row clickable" href="#/practice/writing/${w.id}">${icon('writing', 16)}<div class="grow"><div class="title">${esc(w.title)}</div><div class="meta">${esc(w.genre)} · ${w.reg} · ${w.words[0]}–${w.words[1]} words${L.seen.prompts[w.id] ? ` · done ${U.relDate(L.seen.prompts[w.id])}` : ''}</div></div>${w.d === 'medical' ? '<span class="pill accent">Medical</span>' : w.d === 'professional' ? '<span class="pill outline">Work</span>' : ''}<span class="pill">${w.l}</span></a>`).join('')}</div></div>
+          <div class="list">${list.map((w) => `<a class="row clickable" href="#/practice/writing/${w.id}">${icon('writing', 16)}<div class="grow"><div class="title">${esc(w.title)}</div><div class="meta">${esc(w.genre)} · ${w.reg} · ${w.words[0]}–${w.words[1]} words${L.seen.prompts[w.id] ? ` · done ${U.relDate(L.seen.prompts[w.id])}` : ''}</div></div>${readyPill('writing', w)}${w.d === 'medical' ? '<span class="pill accent">Medical</span>' : w.d === 'professional' ? '<span class="pill outline">Work</span>' : ''}<span class="pill">${w.l}</span></a>`).join('')}</div></div>
         <div class="section"><div class="section-head"><h2>Your texts</h2></div>${L.writings.length ? `<div class="list">${L.writings.slice(0, 30).map((w) => `<div class="row clickable" data-act="openW" data-id="${w.id}">${icon('reading', 16)}<div class="grow"><div class="title">${esc(w.title)}</div><div class="meta">${U.fmtDate(w.date)} · ${w.words} words${w.estTheta != null ? ` · reads like ${U.thetaInfo(w.estTheta).sub}` : ''}</div></div>${ui.score5(w.overall)}</div>`).join('')}</div>` : ui.empty({ icon: 'writing', title: 'No texts yet', text: 'Start with the recommended prompt.' })}</div>
         <div class="section">${ui.notice('Feedback runs locally with transparent rules targeted at Italian speakers (interference, false friends, prepositions, tenses, register). For full rewriting of any sentence, connect an AI backend in Settings — the interface stays the same.', 'info')}</div>
       </div>`;
@@ -347,9 +365,9 @@
       const byType = U.groupBy(p.speaking, (t) => t.type);
       return `<div class="view">
         <div class="page-head"><div><h1>Speaking</h1><p class="sub">Timed speaking tasks: describe, explain, debate, role-play, present, interview, solve problems, respond spontaneously.</p></div>${rec ? `<a class="btn primary" href="#/practice/speaking/${rec.id}">${icon('speaking', 15)} ${esc(rec.title)}</a>` : ''}</div>
-        <div class="stats-row"><div class="stat"><span class="v">${th == null ? '—' : U.thetaInfo(th).sub}</span><span class="k">Speaking level</span></div><div class="stat"><span class="v">${L.speakings.length}</span><span class="k">Tasks done</span></div><div class="stat"><span class="v">${L.speakings.length ? U.round(U.avg(L.speakings.slice(0, 5).map((w) => w.overall || 0)), 1) : '—'}</span><span class="k">Recent self-rating /5</span></div></div>
+        <div class="stats-row"><div class="stat"><span class="v">${th == null ? '—' : U.thetaInfo(th).sub}</span><span class="k">Speaking level</span></div><div class="stat"><span class="v">${L.speakings.length}</span><span class="k">Tasks done</span></div><div class="stat"><span class="v">${L.speakings.length ? U.round(U.avg(L.speakings.slice(0, 5).map((w) => w.overall || 0)), 1) : '—'}</span><span class="k">Recent self-rating /5</span></div>${ladderStat('speaking')}</div>
         <div class="section"><div class="cluster">${caps.map(([l, ok]) => `<span class="pill ${ok ? 'ok' : ''}">${icon(ok ? 'check' : 'x', 12)} ${l}</span>`).join('')}</div></div>
-        ${Object.keys(byType).map((ty) => `<div class="section"><div class="section-head"><h3>${esc(U.cap(ty))}</h3></div><div class="list">${byType[ty].map((t) => `<a class="row clickable" href="#/practice/speaking/${t.id}">${icon('speaking', 16)}<div class="grow"><div class="title">${esc(t.title)}</div><div class="meta">${esc(t.p)}</div></div>${t.d === 'medical' ? '<span class="pill accent">Medical</span>' : ''}<span class="faint small">${Math.round(t.secs / 60 * 10) / 10} min</span><span class="pill">${t.l}</span></a>`).join('')}</div></div>`).join('')}
+        ${Object.keys(byType).map((ty) => `<div class="section"><div class="section-head"><h3>${esc(U.cap(ty))}</h3></div><div class="list">${byType[ty].map((t) => `<a class="row clickable" href="#/practice/speaking/${t.id}">${icon('speaking', 16)}<div class="grow"><div class="title">${esc(t.title)}</div><div class="meta">${esc(t.p)}</div></div>${readyPill('speaking', t)}${t.d === 'medical' ? '<span class="pill accent">Medical</span>' : ''}<span class="faint small">${Math.round(t.secs / 60 * 10) / 10} min</span><span class="pill">${t.l}</span></a>`).join('')}</div></div>`).join('')}
         <div class="section"><div class="section-head"><h2>History</h2></div>${L.speakings.length ? `<div class="list">${L.speakings.slice(0, 20).map((s) => `<div class="row">${icon('speaking', 16)}<div class="grow"><div class="title">${esc(s.title)}</div><div class="meta">${U.fmtDate(s.date)}${s.secs ? ` · ${s.secs}s` : ''}${s.transcript ? ` · ${U.words(s.transcript).length} words` : ''}</div></div>${ui.score5(s.overall)}</div>`).join('')}</div>` : ui.empty({ icon: 'speaking', title: 'No speaking yet', text: 'Your first task takes about two minutes.' })}</div>
         <div class="section">${ui.notice('Fluency (speed, fillers), lexical variety and rule-based accuracy are computed locally from the transcript. Reliable pronunciation scoring needs a dedicated speech-assessment API (phoneme-level scoring) — the rubric and storage are ready for it.', 'info')}</div>
       </div>`;

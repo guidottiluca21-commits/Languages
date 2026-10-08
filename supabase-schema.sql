@@ -131,7 +131,16 @@ create table if not exists public.vocabulary (
   kind            text check (char_length(kind) <= 30),
   domain          text check (char_length(domain) <= 30),
   is_custom       boolean not null default false,
-  stage           smallint check (stage between 0 and 4),
+  stage           smallint check (stage between 0 and 4),           -- deprecated (0–4 scale before Engine 2.0)
+  learning_stage  smallint check (learning_stage between 0 and 7),  -- 0 unseen · 1 exposed · 2 recognized · 3 recalled · 4 controlled · 5 guided · 6 spontaneous · 7 automatic
+  frequency       smallint check (frequency between 1 and 5),
+  prerequisites   text[],
+  exposure_count  integer check (exposure_count >= 0),
+  successful_recalls integer check (successful_recalls >= 0),
+  failed_recalls  integer check (failed_recalls >= 0),
+  hint_usage      integer check (hint_usage >= 0),
+  last_seen       date,
+  context_domains text[],
   mastery         numeric(5,2) check (mastery between 0 and 100),
   ease_factor     numeric(4,2) check (ease_factor between 1 and 5),
   interval        integer check (interval >= 0),
@@ -167,6 +176,8 @@ create table if not exists public.grammar_progress (
   difficulty    smallint check (difficulty between 1 and 3),
   last_review   date,
   next_review   date,
+  learning_stage smallint check (learning_stage between 0 and 6), -- 0 not introduced · 1 recognized · 2 understood · 3 controlled · 4 guided · 5 independent · 6 automatic
+  prerequisites text[],
   notes         text check (char_length(notes) <= 2000),
   data          jsonb not null default '{}'::jsonb check (pg_column_size(data) < 32768),
   created_at    timestamptz not null default now(),
@@ -316,6 +327,32 @@ create table if not exists public.weekly_reviews (
   unique (user_id, client_id)
 );
 
+-- 2.15 Learning tasks: requirements and readiness of writing / speaking / scenario tasks (Engine 2.0).
+--      A task is only generated when the required language has been learnt; otherwise a preparation lesson is.
+create table if not exists public.learning_tasks (
+  id                  uuid primary key default gen_random_uuid(),
+  user_id             uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  language_code       text not null references public.languages(code),
+  task_key            text not null check (char_length(task_key) <= 200),
+  kind                text check (char_length(kind) <= 30),
+  required_vocabulary text[],
+  required_grammar    text[],
+  required_chunks     text[],
+  language_level      text check (public.is_cefr(language_level)),
+  task_complexity     smallint check (task_complexity between 1 and 5),
+  cognitive_load      smallint check (cognitive_load between 1 and 5),
+  output_length       text check (char_length(output_length) <= 60),
+  readiness           numeric(4,3) check (readiness between 0 and 1),
+  step                smallint not null default 0 check (step between 0 and 3), -- 0 language · 1 controlled · 2 guided · 3 free
+  attempts            integer not null default 0 check (attempts >= 0),
+  best_score          numeric(4,3) check (best_score between 0 and 1),
+  last_attempt        date,
+  data                jsonb not null default '{}'::jsonb check (pg_column_size(data) < 16384),
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now(),
+  unique (user_id, language_code, task_key)
+);
+
 -- ---------------------------------------------------------------------------
 -- 2.99 Migration from the first version of this script (safe to re-run)
 --      · the language column is now called language_code in every learning table
@@ -337,6 +374,19 @@ alter table public.listening_content add column if not exists topic text check (
 alter table public.listening_content add column if not exists accent text check (char_length(accent) <= 60);
 alter table public.listening_content add column if not exists speed text check (speed is null or speed in ('slow', 'moderate', 'normal', 'fast'));
 alter table public.listening_content add column if not exists has_transcript boolean;
+-- Engine 2.0: learning stages and counters
+alter table public.vocabulary add column if not exists learning_stage smallint check (learning_stage between 0 and 7);
+alter table public.vocabulary add column if not exists frequency smallint check (frequency between 1 and 5);
+alter table public.vocabulary add column if not exists prerequisites text[];
+alter table public.vocabulary add column if not exists exposure_count integer check (exposure_count >= 0);
+alter table public.vocabulary add column if not exists successful_recalls integer check (successful_recalls >= 0);
+alter table public.vocabulary add column if not exists failed_recalls integer check (failed_recalls >= 0);
+alter table public.vocabulary add column if not exists hint_usage integer check (hint_usage >= 0);
+alter table public.vocabulary add column if not exists last_seen date;
+alter table public.vocabulary add column if not exists context_domains text[];
+update public.vocabulary set learning_stage = (array[1,1,2,3,6])[stage + 1] where learning_stage is null and stage is not null;
+alter table public.grammar_progress add column if not exists learning_stage smallint check (learning_stage between 0 and 6);
+alter table public.grammar_progress add column if not exists prerequisites text[];
 
 -- ---------------------------------------------------------------------------
 -- 3. Indexes (every RLS check filters on user_id; most queries also on language/dates)
@@ -354,6 +404,8 @@ create index if not exists productions_user_lang_idx    on public.productions (u
 create index if not exists plans_user_lang_date_idx     on public.daily_plans (user_id, language_code, plan_date desc);
 create index if not exists assessments_user_lang_idx    on public.assessments (user_id, language_code);
 create index if not exists reviews_user_lang_idx        on public.weekly_reviews (user_id, language_code);
+create index if not exists tasks_user_lang_idx          on public.learning_tasks (user_id, language_code);
+create index if not exists vocabulary_user_lang_stage_idx on public.vocabulary (user_id, language_code, learning_stage);
 
 -- ---------------------------------------------------------------------------
 -- 4. Automatic timestamps
@@ -362,7 +414,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['profiles','user_settings','language_profiles','vocabulary','grammar_progress',
-                           'errors','listening_content','work_schedule','daily_plans']
+                           'errors','listening_content','work_schedule','daily_plans','learning_tasks']
   loop
     execute format('drop trigger if exists %I on public.%I', t || '_updated_at', t);
     execute format('create trigger %I before update on public.%I for each row execute function public.set_updated_at()',
@@ -425,7 +477,7 @@ declare t text;
 begin
   foreach t in array array['profiles','user_settings','language_profiles','vocabulary','vocabulary_reviews',
                            'grammar_progress','study_sessions','errors','listening_content','work_schedule',
-                           'productions','daily_plans','assessments','weekly_reviews']
+                           'productions','daily_plans','assessments','weekly_reviews','learning_tasks']
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from anon', t);

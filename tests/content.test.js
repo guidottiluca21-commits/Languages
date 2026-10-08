@@ -82,6 +82,10 @@ for (const code of codes) {
   const med = new Set(LOS.shared.MED_CATS.map(([k]) => k)), pro = new Set(LOS.shared.PRO_CATS.map(([k]) => k));
   ok(p.medical.length >= 15 && p.medical.every((m) => med.has(m.cat) && m.expr.length && (m.scen || []).length), `${tag} medical modules (≥15) valid`);
   ok(p.professional.length >= 8 && p.professional.every((m) => pro.has(m.cat) && m.expr.length && (m.scen || []).length), `${tag} professional modules (≥8) valid`);
+  /* Engine 2.0: core medical modules carry taught words; every pathway module exists */
+  ['basics', 'medications', 'investigations', 'treatment'].forEach((k) => { const st = LOS.PATHWAYS.medical.steps.find((x) => x.key === k); const m = p.index.modules[code + '-med-' + st[code][0]]; ok(m && (m.words || []).length >= 6 && m.words.every((w) => w.w && w.tr && w.def && w.ex), `${tag} pathway step ${k} has a module with ≥6 complete words`); });
+  Object.entries(LOS.PATHWAYS).forEach(([pk, def]) => def.steps.forEach((st) => (st[code] || []).forEach((x) => ok(p.index.modules[code + '-med-' + x], `${tag} pathway ${pk}/${st.key}: module ${code}-med-${x} exists`))));
+  ok(LOS.PATHWAYS.medical.steps.length === 16 && LOS.PATHWAYS.medical.steps.every((st) => (st[code] || []).length >= 1), `${tag} medical pathway has 16 steps, each with a module`);
   const mids = p.medical.concat(p.professional).map((m) => m.id);
   ok(new Set(mids).size === mids.length, `${tag} module ids unique`);
 
@@ -92,6 +96,7 @@ for (const code of codes) {
   const correct = [];
   p.grammar.forEach((t) => { correct.push(...t.ex); t.x.forEach((x) => { if (x.t === 'fix' || x.t === 'tr') correct.push(x.a[0]); }); });
   p.vocab.forEach((v) => correct.push(v.ex));
+  p.medical.forEach((m) => (m.words || []).forEach((w) => correct.push(w.ex)));
   p.medical.concat(p.professional).forEach((m) => (m.scen || []).forEach((s) => s.model && correct.push(...U.sentences(s.model))));
   let fp = 0;
   correct.forEach((sent) => {

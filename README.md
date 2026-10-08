@@ -24,6 +24,7 @@ computer, iPhone e iPad. Progettata per costare **0 €**.
 10. [Integrazione futura con un'AI](#10-integrazione-futura-con-unai)
 11. [Checklist](#11-checklist)
 12. [Le quattro lingue e come aggiungerne una quinta](#12-le-quattro-lingue-e-come-aggiungerne-una-quinta)
+13. [Motore pedagogico 2.0](#13-motore-pedagogico-20)
 
 ---
 
@@ -463,3 +464,87 @@ verifica automaticamente che il nuovo pacchetto sia completo (A1→C2) e coerent
 - ✅ Sincronizzazione Supabase · ✅ dati separati per `language_code` (verificato su PostgreSQL reale)
 - ✅ Architettura pronta per una quinta lingua
 - ⚙️ Se avevi già creato il database: **riesegui `supabase-schema.sql`** (migrazione automatica)
+
+## 13. Motore pedagogico 2.0
+
+Principio: **il prossimo passo più piccolo e utile**. Il CEFR resta il quadro di riferimento, ma la
+difficoltà di ogni attività è regolata separatamente: livello linguistico, complessità del compito,
+carico cognitivo e lunghezza dell'output.
+
+**Insegnare prima di verificare.** Ogni elemento nuovo segue la sequenza
+vedere → ascoltare → capire → riconoscere → richiamare → completare → produrre → usare in contesto →
+uso spontaneo → ripasso. Nessun esercizio di produzione su materiale mai presentato.
+
+**Maturità delle conoscenze** (salvata nel database in `learning_stage`):
+- vocabolario e chunk 0–7: mai visto, esposto, riconosciuto, richiamato, produzione controllata,
+  produzione guidata, uso spontaneo, automatico;
+- grammatica 0–6: non introdotta, riconosciuta, capita, uso controllato, produzione guidata,
+  produzione autonoma, automatica.
+
+Un risultato viene classificato come *facile*, *esitante*, *con suggerimento*, *sbagliato* o
+*errore ripetuto*. Di conseguenza lo stadio sale, resta fermo, scende o l'elemento viene rispiegato.
+Gli stadi alti richiedono anche intervalli lunghi (o un uso spontaneo rilevato nei tuoi testi).
+
+**Prerequisiti dei compiti.** Ogni compito di scrittura o speaking e ogni scenario calcola il
+vocabolario, i chunk e la grammatica che richiede, ad esempio "Required chunks 11/18" (tabella
+`learning_tasks`). Se non sei pronto compare *"You are not quite ready for this task yet"* e parte
+una lezione di preparazione automatica.
+
+**Scala di produzione.** Scrittura e speaking partono corti (1 frase → 2–3 → 3–5 → paragrafo →
+testo breve → compito completo) e salgono dopo due buoni risultati. Gli scenari seguono questo percorso:
+lingua → versione controllata → versione guidata → scenario libero.
+
+**Lezione del giorno.** La lezione è un unico percorso: ripasso → parole nuove → pratica controllata →
+grammatica, oppure la clinica degli errori se un errore si ripete → applicazione.
+- Nei giorni più lunghi si aggiungono ascolto o lettura e produzione.
+- La **sfida** è sempre facoltativa e non conta nei minuti del giorno.
+- Sessioni minime: 5 minuti (5 ripassi, 2 domande di grammatica, 1 frase) e 10 minuti (ripasso,
+  grammatica, mini-dialogo).
+
+**Errori.** Un errore ricorrente viene affrontato in questo ordine:
+1. spiegazione;
+2. esercizi controllati;
+3. correzione delle tue frasi sbagliate;
+4. una frase nuova in contesto;
+5. nuovo controllo dopo 3 giorni.
+
+Ai livelli A1/A2 la correzione è selettiva: al massimo 3 errori e niente note di stile. Le correzioni
+distinguono tra *corretto* e *più naturale/idiomatico*.
+
+**Linguaggio medico.**
+- Un percorso di 16 passi, in tutte e 4 le lingue: lessico di base, sintomi, anamnesi, esame obiettivo,
+  procedure, farmaci, consenso, comunicazione in ospedale, lavoro di squadra, consegne, presentare un
+  paziente, esami, terapia, emergenza, linguaggio scientifico, congressi.
+- Un percorso facoltativo di anestesia e terapia intensiva.
+- I passi si sbloccano quando hai imparato il 70% della lingua del passo precedente: conta la
+  padronanza, non l'etichetta CEFR.
+- È solo formazione linguistica, non contiene indicazioni cliniche.
+
+**Tutor AI (facoltativo).** Se configuri un endpoint, ogni richiesta include anche `tutor`: cosa sai
+già, cosa stai imparando, i tuoi errori ricorrenti, la politica di correzione e le 10 regole del tutor.
+Senza endpoint tutto funziona in locale.
+
+**Database.** Se avevi già creato il database, **riesegui `supabase-schema.sql`**. Lo script:
+- aggiunge le nuove colonne e la tabella `learning_tasks`, con le regole RLS;
+- converte i vecchi stadi 0–4 nella nuova scala;
+- non cancella dati.
+
+È stato verificato su PostgreSQL 16 in tre modi: installazione da zero, upgrade dallo schema
+precedente e isolamento RLS tra due utenti.
+
+### Checklist Engine 2.0
+- ✅ Stadi 0–7 (lessico) e 0–6 (grammatica), con classificazione adattiva dei risultati
+- ✅ Hub vocabolario con distribuzione degli stadi, chunk dei moduli, filtri per tipo e dominio
+- ✅ Micro-attività: scegli, completa, traduci, abbina, ascolta, ripeti, correggi, costruisci la frase,
+  espressione naturale, formale/informale, completa il dialogo, rispondi con 1 e poi 3 frasi
+- ✅ Controllo dei prerequisiti e lezione di preparazione · ✅ scala di produzione · ✅ percorso degli scenari
+- ✅ Lezione giornaliera coerente, sessioni minime, sfida facoltativa
+- ✅ Clinica degli errori · ✅ correzione selettiva ai livelli A1/A2
+- ✅ Percorso medico a 16 passi e percorso di anestesia e terapia intensiva (EN/ES/DE/FR)
+- ✅ Test: contenuti (5.675 controlli), round-trip del mapper, E2E nel browser in 4 lingue, cloud, PostgreSQL
+- ⚠️ Limiti:
+  - La correzione locale si basa su regole: individua gli errori frequenti, non tutti.
+  - Il riconoscimento dell'uso spontaneo cerca le espressioni che hai già imparato, non le loro varianti.
+  - I prerequisiti si ricavano automaticamente dai contenuti. Per alcuni compiti di scrittura e speaking
+    sono pochi, perché le frasi chiave non compaiono altrove nei contenuti.
+

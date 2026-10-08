@@ -14,8 +14,11 @@
     if (cfg.provider !== 'remote' || !cfg.endpoint) return null;
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 30000);
+    // Tutor context: what the learner knows, the tutor rules (teach before test, one step at a time, …).
+    let tutor = null;
+    try { tutor = LOS.ped && lang ? LOS.ped.tutorContext(lang) : null; } catch (e) { tutor = null; }
     try {
-      const res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, lang, payload }), signal: ctrl.signal });
+      const res = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task, lang, payload, tutor }), signal: ctrl.signal });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       return data && typeof data === 'object' ? Object.assign({ _source: 'remote' }, data) : null;

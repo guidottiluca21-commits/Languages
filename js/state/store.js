@@ -6,7 +6,7 @@
   const LOS = window.LOS;
   const U = LOS.util;
   const LEGACY_KEY = 'los:v1'; // used by the local-only version (before accounts)
-  const VERSION = 1;
+  const VERSION = 2; // 2 = Pedagogy Engine 2.0 (vocabulary stages 0–7, grammar stages 0–6, tasks, production ladder)
 
   function defaultState() {
     return {
@@ -76,6 +76,10 @@
       reviewLog: [], // vocabulary reviews not yet stored in the cloud (vocabulary_reviews table)
       weekFocus: null, // { skill, until }
       seen: { texts: {}, prompts: {}, think: {}, scenarios: {} },
+      tasks: {}, // task key → requirements, readiness, step (language → controlled → guided → free), attempts
+      prod: {}, // production ladder step per kind ('writing' | 'speaking'), 1 = one sentence … 6 = full task
+      prodWins: {},
+      remedied: {}, // recurring error key → { date, times, persist }
     };
   }
 
@@ -92,8 +96,14 @@
 
   function migrate(s) {
     s = s && typeof s === 'object' ? s : {};
+    const from = s.version || 1;
     merge(s, defaultState());
     Object.keys(s.langs || {}).forEach((code) => merge(s.langs[code], defaultLang(code)));
+    if (from < 2) {
+      // vocabulary stages 0–4 (New, Recognition, Recall, Production, Automatic) → 0–7 learning stages
+      const MAP = { 0: 1, 1: 1, 2: 2, 3: 3, 4: 6 };
+      Object.values(s.langs || {}).forEach((L) => Object.values(L.vocab || {}).forEach((st) => { st.stage = MAP[st.stage || 0] != null ? MAP[st.stage || 0] : 1; }));
+    }
     s.version = VERSION;
     return s;
   }

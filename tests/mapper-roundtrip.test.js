@@ -14,7 +14,7 @@ ctx.window = ctx;
 vm.createContext(ctx);
 ['js/core.js', 'js/content/languages.js', 'js/content/shared.js', 'js/content/en.js', 'js/content/en-pro.js', 'js/content/es.js', 'js/content/es-pro.js',
  'js/content/de.js', 'js/content/de-lex.js', 'js/content/de-pro.js', 'js/content/fr.js', 'js/content/fr-lex.js', 'js/content/fr-pro.js', 'js/state/store.js',
- 'js/engine/srs.js', 'js/engine/skills.js', 'js/engine/learning.js', 'js/engine/writing.js', 'js/engine/assessment.js', 'js/engine/planner.js', 'js/engine/progress.js', 'js/data/mapper.js']
+ 'js/engine/srs.js', 'js/engine/skills.js', 'js/engine/learning.js', 'js/engine/pedagogy.js', 'js/engine/writing.js', 'js/engine/assessment.js', 'js/engine/planner.js', 'js/engine/progress.js', 'js/data/mapper.js']
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f }));
 const LOS = ctx.LOS, U = LOS.util;
 let failures = 0;
@@ -44,6 +44,14 @@ for (const code of ['en', 'es', 'de', 'fr']) {
   ids.forEach((id, i) => LOS.learn.gradeVocab(code, id, i % 4));
   const cv = LOS.learn.addCustomVocab(code, { w: 'bottleneck', tr: 'collo di bottiglia', def: 'a point of congestion', col: 'a major bottleneck, create a bottleneck', l: 'C1' });
   LOS.learn.introduceVocab(code, [cv.id]);
+  // Engine 2.0: staged outcomes, task requirements/readiness, production ladder
+  if (ids[0]) { LOS.ped.recordVocab(code, ids[0], 'easy'); LOS.ped.recordVocab(code, ids[0], 'hesitant'); }
+  const wt = LOS.lang.get(code).writing[0];
+  const meta = LOS.ped.taskMeta(code, 'writing', wt);
+  const ts = LOS.ped.taskState(code, meta); ts.attempts = 2; ts.best = 0.72; ts.last = U.today(); ts.readiness = 0.5;
+  const mod = LOS.lang.get(code).medical[0];
+  LOS.ped.taskState(code, LOS.ped.taskMeta(code, 'scenario', mod.scen[0], mod)).step = 2;
+  LOS.ped.recordProduction(code, 'writing', 0.8, true);
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.', natural: 'People are exhausted.', note: 'plural' });
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.' }); // same-day duplicate → count 2
   LOS.learn.recordSession(code, { type: 'grammar', skill: 'grammar', minutes: 12, score: 0.75, title: 'Conditionals' });
@@ -95,6 +103,10 @@ for (const c of ['en', 'es', 'de', 'fr']) ok(rows.language_profiles.some((r) => 
 ok(['vocabulary', 'grammar_progress', 'errors', 'study_sessions', 'listening_content'].every((t) => rows[t].every((r) => ['en', 'es', 'de', 'fr'].includes(r.language_code) && (!r.item_key || !r.item_key.includes(':') || r.item_key.startsWith(r.language_code + ':')))), 'every learning row carries language_code and only its own language\'s items');
 ok(Object.keys(st2.langs.de.vocab).every((k) => k.startsWith('de:')) && Object.keys(st2.langs.fr.vocab).every((k) => k.startsWith('fr:')), 'German and French vocabulary stay separate');
 ok(rows.listening_content.some((r) => r.topic === 'medicine' && r.accent === 'Austria' && r.speed === 'fast' && r.has_transcript === true), 'listening classification columns are filled');
+ok(rows.learning_tasks.length >= 8 && rows.learning_tasks.every((r) => r.task_key && r.task_complexity >= 1 && r.language_level && Array.isArray(r.required_vocabulary)), 'learning_tasks rows carry requirements and difficulty dimensions');
+ok(rows.vocabulary.every((r) => r.learning_stage >= 0 && r.learning_stage <= 7 && r.stage === null), 'vocabulary rows use learning_stage 0–7 (deprecated stage column empty)');
+ok(rows.vocabulary.some((r) => r.exposure_count > 0 && r.last_seen), 'vocabulary counters (exposure, last_seen) are stored');
+ok(rows.grammar_progress.every((r) => r.learning_stage >= 0 && r.learning_stage <= 6), 'grammar rows use learning_stage 0–6');
 process.exitCode = failures ? 1 : 0;
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');
 

@@ -62,7 +62,7 @@
     const st = it.status;
     const href = `#/session/${code}/${date}/${it.id}`;
     const cat = ui.CAT_OF[it.type] || 'study';
-    return `<div class="today-item ${st}" data-id="${it.id}">
+    return `<div class="today-item ${st}${it.optional ? ' optional' : ''}" data-id="${it.id}">
       <button class="tick" ${st === 'pending' ? `data-act="go" data-href="${href}" aria-label="Start ${esc(it.title)}"` : `aria-label="${st}" disabled`}>${st === 'done' ? icon('check', 14) : ''}</button>
       <div><div class="t"><span>${esc(it.title)}</span>${it.level ? `<span class="pill">${esc(it.level)}</span>` : ''}${st === 'skipped' ? '<span class="pill">skipped</span>' : st === 'missed' ? '<span class="pill">missed</span>' : ''}</div>
         <div class="s">${esc(it.subtitle || '')}</div>${opts.reasons !== false && it.reason ? `<div class="r">${esc(it.reason)}</div>` : ''}</div>
@@ -114,7 +114,8 @@
           <div class="go"><span class="mins">${remaining} min · ${plan.items.filter((i) => i.status === 'pending').length} activities left</span><a class="btn primary lg" href="#/session/${code}/${U.today()}/${first.id}">${plan.items.some((i) => i.status === 'done') ? 'Continue' : 'Start session'} ${icon('arrowRight', 16)}</a></div></div>`;
 
       const today = plan ? `<div class="section"><div class="section-head"><h2>Today</h2><a class="small" href="#/today">${plan.minutes} min · ${plan.items.length} activities</a></div>
-        <div class="list">${plan.items.map((it) => planItemRow(code, U.today(), it, { reasons: false })).join('')}</div></div>` : '';
+        <div class="list">${plan.items.map((it) => planItemRow(code, U.today(), it, { reasons: false })).join('')}</div>
+        ${plan.challenge && plan.challenge.status === 'pending' ? `<div class="faint xs mt-8">Optional challenge: <a href="#/session/${code}/${U.today()}/${plan.challenge.id}">${esc(plan.challenge.title)}</a> — not required.</div>` : ''}</div>` : '';
 
       const langs = LOS.lang.codes().map((c) => {
         const LL = st.langs[c];
@@ -226,15 +227,17 @@
         ${plans.length > 1 ? `<div class="section"><div class="list">${plans.map(({ code: c, plan }) => `<div class="row" style="min-height:44px"><span class="grow">${ui.langFlag(c)} <strong>${esc(ui.langNative(c))}</strong> — ${plan.minutes} min</span><span class="muted small">${esc([...new Set(plan.items.map((i) => U.SKILL_LABEL[i.skill] || i.skill))].slice(0, 3).join(' + '))}</span></div>`).join('')}</div></div>` : ''}
         ${plans.map(({ code: c, plan }) => `<div class="section"><div class="section-head"><h2>${ui.langFlag(c)} ${esc(ui.langName(c))} · ${plan.minutes} min</h2><span class="faint small">${esc(modeLabel(plan.mode))}</span></div>
           <p class="muted small">Focus: <strong>${esc(plan.focus.title)}</strong></p>
-          <div class="list mt-8">${plan.items.map((it) => planItemRow(c, U.today(), it)).join('')}</div></div>`).join('')}
+          <div class="list mt-8">${plan.items.map((it) => planItemRow(c, U.today(), it)).join('')}</div>
+          ${plan.challenge ? `<div class="mt-12"><div class="eyebrow">Optional challenge · not required</div><div class="list mt-8">${planItemRow(c, U.today(), plan.challenge, { actions: false })}</div></div>` : ''}</div>`).join('')}
         ${budget.mode === 'rest' ? ui.empty({ icon: 'rest', title: 'Rest day', text: 'Nothing scheduled. Spaced repetition waits for you; nothing piles up.', action: '<a class="btn" href="#/practice/review/all">Optional quick review</a>' }) : ''}
         ${missing.length && budget.mode !== 'rest' ? `<div class="section">${missing.map((c) => `<div class="between card soft"><div><strong>${esc(ui.langName(c))}</strong><div class="muted small">Not scheduled today: the time available is shared by rotation, so this language gets priority on one of the next days. Its reviews keep their own schedule.</div></div><button class="btn sm" data-act="extraFor" data-code="${c}">Add 15 min</button></div>`).join('')}</div>` : ''}
         <div class="section"><div class="section-head"><h3>How today was planned</h3></div>
           <ol class="muted small lesson" style="padding-left:18px">
             <li>Workload: ${esc(info.label)} → ${info.category} day (${S().rules[info.category].join('–')} min rule).</li>
-            <li>Due reviews come first (retrieval practice); nothing missed is piled on top.</li>
-            <li>Remaining time goes to your weakest skills, adjusted for goals, recent practice, errors and skips.</li>
-            <li>Order: input → controlled practice → production.</li>
+            <li>One lesson, not a list of activities: review → new words &amp; chunks → controlled practice → grammar (or an error clinic for a recurring mistake) → application.</li>
+            <li>Teach before test: new language is always presented and practised before you are asked to produce it; tasks you are not ready for start with a preparation lesson.</li>
+            <li>Due reviews come first; nothing missed is piled on top. On longer days the extra time goes to input and production for your weakest skills.</li>
+            <li>The optional challenge is never required and is not counted in today's minutes.</li>
           </ol></div>
       </div>`;
     },
@@ -256,7 +259,7 @@
     mount(root, params) {
       const [code, date, itemId] = params;
       const plan = LOS.store.lang(code) && LOS.store.lang(code).plans[date];
-      const item = plan && plan.items.find((i) => i.id === itemId);
+      const item = plan && (plan.items.find((i) => i.id === itemId) || (plan.challenge && plan.challenge.id === itemId ? plan.challenge : null));
       const host = root.id === 'runner-root' ? root : root.querySelector('#runner-root') || root;
       if (!item) { host.innerHTML = ui.empty({ icon: 'today', title: 'Activity not found', text: 'This activity belongs to an older plan.', action: '<a class="btn" href="#/today">Back to Today</a>' }); return; }
       if (item.status !== 'pending') { host.innerHTML = ui.empty({ icon: 'checkCircle', title: `Already ${item.status}`, text: 'You can still practise it from its section.', action: '<a class="btn" href="#/today">Back to Today</a>' }); return; }
@@ -285,6 +288,9 @@
         writing: () => ({ type: 'writing', skill: 'writing', title: 'Writing', subtitle: arg === 'free' ? 'Free writing' : (p.writing.find((w) => w.id === arg) || {}).title, payload: { promptId: arg } }),
         speaking: () => ({ type: 'speaking', skill: 'speaking', title: 'Speaking', subtitle: (p.speaking.find((w) => w.id === arg) || {}).title, payload: { taskId: arg } }),
         think: () => ({ type: 'think', skill: 'think', title: 'Think in ' + p.name, subtitle: arg && arg !== 'mix' ? LOS.shared.THINK_TYPES[arg].label : 'Mixed drills', payload: { count: 5, type: arg && arg !== 'mix' ? arg : undefined } }),
+        micro: () => ({ type: 'micro', skill: 'vocabulary', title: 'Micro-practice', subtitle: { controlled: 'Controlled practice', application: 'Application', sentence: 'One sentence', dialogue: 'Mini dialogue' }[arg] || 'Short tasks', payload: { focus: arg || 'mixed', count: 8 } }),
+        lesson: () => { const g = arg === 'writing' || arg === 'speaking' || arg === 'scenario'; return { type: 'lesson', skill: 'vocabulary', title: 'Preparation lesson', subtitle: 'The language you need', payload: g ? (arg === 'scenario' ? { kind: 'scenario', moduleId: arg2, idx: 0 } : { kind: arg, promptId: arg2, taskId: arg2 }) : { ids: decodeURIComponent(arg || '').split(',').filter(Boolean) } }; },
+        remedy: () => ({ type: 'remedy', skill: 'grammar', title: 'Error clinic', subtitle: 'Recurring error', payload: arg ? { key: decodeURIComponent(arg), label: decodeURIComponent(arg) } : {} }),
         scenario: () => { const m = p.index.modules[arg]; return m && { type: 'scenario', skill: 'speaking', title: m.id.includes('-med-') ? 'Medical scenario' : 'Professional scenario', subtitle: m.title, level: m.l, payload: { moduleId: arg, idx: +(arg2 || 0) } }; },
       };
       const make = map[type];

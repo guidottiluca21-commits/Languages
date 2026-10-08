@@ -703,3 +703,16 @@ details > summary::-webkit-details-marker { display: none; }
 .ladder-step.done .n { background: var(--text-3); color: var(--surface); }
 .ladder-step.on { border-color: var(--text-3); color: var(--text); font-weight: 600; box-shadow: var(--shadow-1); }
 .ladder-step.on .n { background: var(--text); color: var(--surface); }
+
+/* Pedagogical engine: scenario path, staged items, readiness */
+.steps-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.steps-line span { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-3); }
+.steps-line span.done { color: var(--success); border-color: var(--success); }
+.steps-line span.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.built { border-bottom: 1px dashed var(--border-strong); padding-bottom: 6px; }
+.mb-8 { margin-bottom: 8px; }
+.stage-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--surface-2); }
+.stage-bar i { display: block; height: 100%; }
+.path-step.locked { opacity: 0.6; }
+.path-step.done .num { color: var(--success); }
+.path-step { flex-wrap: wrap; }
