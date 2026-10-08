@@ -12,9 +12,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
-['js/core.js', 'js/content/languages.js', 'js/content/shared.js', 'js/content/en.js', 'js/content/en-pro.js', 'js/content/es.js', 'js/content/es-pro.js',
- 'js/content/de.js', 'js/content/de-lex.js', 'js/content/de-pro.js', 'js/content/fr.js', 'js/content/fr-lex.js', 'js/content/fr-pro.js', 'js/state/store.js',
- 'js/engine/srs.js', 'js/engine/skills.js', 'js/engine/learning.js', 'js/engine/pedagogy.js', 'js/engine/writing.js', 'js/engine/assessment.js', 'js/engine/planner.js', 'js/engine/progress.js', 'js/data/mapper.js']
+(() => { const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8'); return [...html.matchAll(/<script src="(js\/(?:core|config|content\/[^"]+|state\/[^"]+|engine\/[^"]+|data\/mapper))\.js"><\/script>/g)].map((m) => m[1] + '.js'); })()
   .forEach((f) => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f }));
 const LOS = ctx.LOS, U = LOS.util;
 let failures = 0;
@@ -52,6 +50,16 @@ for (const code of ['en', 'es', 'de', 'fr']) {
   const mod = LOS.lang.get(code).medical[0];
   LOS.ped.taskState(code, LOS.ped.taskMeta(code, 'scenario', mod.scen[0], mod)).step = 2;
   LOS.ped.recordProduction(code, 'writing', 0.8, true);
+  // adaptive layer: goal, library, simulation, exposure, allocation snapshot, speaking ladder
+  L.target = { type: 'work_abroad', country: LOS.COUNTRIES[code][0].label };
+  const lib = LOS.library.add(code, { title: 'Article', kind: 'article', url: 'https://example.com/a', text: LOS.lang.get(code).vocab.slice(0, 6).map((v) => v.ex).join(' ') });
+  lib.out = LOS.library.localAdapt(code, lib.text);
+  const am = LOS.lang.get(code).abroad[0];
+  const ev = LOS.sim.evaluate(code, am, am.scen[0], [{ text: am.scen[0].model, secs: 0 }, { text: am.expr[0].p, secs: 0 }], 2);
+  LOS.sim.save(code, am, 0, ev, [1, 2]);
+  LOS.exposure.toggle(code, 'listen');
+  LOS.goals.snapshotAllocation(code);
+  LOS.ped.recordSpeak(code, 0.8);
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.', natural: 'People are exhausted.', note: 'plural' });
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.' }); // same-day duplicate → count 2
   LOS.learn.recordSession(code, { type: 'grammar', skill: 'grammar', minutes: 12, score: 0.75, title: 'Conditionals' });
@@ -107,6 +115,8 @@ ok(rows.learning_tasks.length >= 8 && rows.learning_tasks.every((r) => r.task_ke
 ok(rows.vocabulary.every((r) => r.learning_stage >= 0 && r.learning_stage <= 7 && r.stage === null), 'vocabulary rows use learning_stage 0–7 (deprecated stage column empty)');
 ok(rows.vocabulary.some((r) => r.exposure_count > 0 && r.last_seen), 'vocabulary counters (exposure, last_seen) are stored');
 ok(rows.grammar_progress.every((r) => r.learning_stage >= 0 && r.learning_stage <= 6), 'grammar rows use learning_stage 0–6');
+ok(rows.input_library.length === 4 && rows.input_library.every((r) => r.title && r.content && r.data && r.data.out), 'input_library rows carry text and the extracted learning material');
+ok(rows.language_profiles.every((r) => r.data.sims && r.data.sims.length && r.data.target && r.data.exposure && !r.data.library), 'simulations, goal and exposure live in language_profiles.data (library has its own table)');
 process.exitCode = failures ? 1 : 0;
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');
 

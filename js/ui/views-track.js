@@ -226,6 +226,7 @@
       return `<div class="view">
         <div class="page-head"><div><div class="eyebrow">${ui.langFlag(code())} ${esc(p.name)}</div><h1 class="mt-4"><span class="level">${o.sub}</span> → ${rm.nextLevel}</h1><p class="sub">Progress is measured from evidence — skill estimates, grammar mastery, active vocabulary and production quality — not from time spent.</p></div>
           <a class="btn" href="#/assessment">${icon('target', 15)} Retake placement test</a></div>
+        ${LOS.adaptUI.analyticsHTML(code())}
         <div class="card"><div class="roadmap" aria-label="Roadmap from A1 to C2">
           <div class="you" style="left:${youPct}%">YOU</div>
           <div class="track"><div class="fill" style="width:${youPct}%"></div></div>
@@ -258,7 +259,7 @@
    * ====================================================================== */
   const errState = { cat: 'all', label: null, showResolved: false };
   V.errors = {
-    title: 'Error Log',
+    title: 'Error Bank',
     render() {
       const L = lang();
       if (!L || !L.onboarded) return `<div class="view narrow">${ui.empty({ icon: 'errors', title: 'No errors yet' })}</div>`;
@@ -268,8 +269,9 @@
       const catLabel = Object.fromEntries(LOS.lang.errorCats(code()));
       const dueCards = LOS.learn.dueErrorCards(code()).length;
       return `<div class="view">
-        <div class="page-head"><div><h1>Error Log</h1><p class="sub">Every mistake from exercises, writing, speaking and reviews — classified, counted and fed back into your plan. Frequent patterns get more practice; fixed ones fade out.</p></div>
+        <div class="page-head"><div><h1>Error Bank</h1><p class="sub">Every mistake from exercises, writing, speaking and reviews — classified, counted and fed back into your plan. Frequent patterns get more practice; fixed ones fade out.</p></div>
           <div class="cluster"><button class="btn" data-act="add">${icon('plus', 15)} Add an error</button><button class="btn primary" data-act="practise">${icon('review', 15)} Practise errors${dueCards ? ` · ${dueCards} due` : ''}</button></div></div>
+        ${LOS.adaptUI.errorBankHTML(code())}
         <div class="grid grid-2" style="--gap:40px">
           <div><div class="section-head"><h2>Most frequent errors</h2><span class="faint small">last 60 days, recent weighted</span></div>
             ${stats.byLabel.length ? stats.byLabel.slice(0, 8).map((x, i) => `<div class="freq-row clickable" data-act="label" data-v="${esc(x.label)}" role="button" style="cursor:pointer"><span class="n">${i + 1}.</span><span class="${errState.label === x.label ? 'strong' : ''}">${esc(x.label)}</span>${ui.bar((x.weight / max) * 100, 'thin')}<span class="num faint">${x.count}</span></div>`).join('') : '<p class="muted small">No errors recorded yet. They will appear automatically as you practise.</p>'}</div>

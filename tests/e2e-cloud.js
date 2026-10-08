@@ -65,7 +65,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await A.click('button[data-act="next"]');
   await A.click('button[data-act="next"]');
   await A.click('button[data-act="generate"]');
-  await A.waitForSelector('.focus-card');
+  await A.waitForSelector('.today-card');
   await waitSynced(A);
   const lp = await rows(A, 'language_profiles');
   ok(lp.length === 2 && lp.some((r) => r.language_code === 'en') && lp.some((r) => r.language_code === 'es'), 'a language_profile row exists for each chosen language (en, es)');
@@ -103,7 +103,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await A.screenshot({ path: SHOTS + 'c05-offline.png' });
   await A.evaluate(() => { sessionStorage.setItem('__mockOffline', '1'); location.hash = '#/dashboard'; });
   await A.reload();
-  await A.waitForSelector('.focus-card');
+  await A.waitForSelector('.today-card');
   ok(await A.evaluate(() => LOS.store.state.langs.en.custom.some((c) => c.w === 'offline word')), 'still offline after closing/reopening: app opens from the local cache with the pending change');
   ok(!(await rows(A, 'vocabulary')).some((r) => r.word === 'offline word'), 'still offline: nothing lost, nothing sent yet');
   await A.evaluate(() => { sessionStorage.removeItem('__mockOffline'); window.__mockOffline = false; window.dispatchEvent(new Event('online')); });
@@ -131,7 +131,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   ok((await B.textContent('.auth-msg')).includes('Email o password non corrette.'), 'wrong credentials → "Email o password non corrette."');
   await B.fill('#pw', 'Anestesia2026');
   await B.click('button[type=submit]');
-  await B.waitForSelector('.focus-card');
+  await B.waitForSelector('.today-card');
   await B.screenshot({ path: SHOTS + 'c06-deviceB-mobile.png' });
   ok((await B.textContent('.greet')).includes('Luca'), 'device B: personalised dashboard with the user name');
   const enCustom = await B.evaluate(() => LOS.store.state.langs.en.custom.map((c) => c.w));
@@ -168,7 +168,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   /* ---------------- session expiry keeps pending work ---------------- */
   await B.fill('#email', 'luca@example.com'); await B.fill('#pw', 'Anestesia2026');
   await B.click('button[type=submit]');
-  await B.waitForSelector('.focus-card');
+  await B.waitForSelector('.today-card');
   B.on('console', (m) => { if (process.env.DEBUG) console.log('B>', m.text().slice(0, 200)); });
   await B.evaluate(() => { window.__mockExpire = true; const it = LOS.learn.addCustomVocab('en', { w: 'expired word' }); LOS.learn.introduceVocab('en', [it.id]); LOS.store.save(); });
   await B.waitForSelector('text=La sessione è scaduta', { timeout: 10000 });
@@ -176,7 +176,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await B.evaluate(() => { window.__mockExpire = false; });
   await B.fill('#email', 'luca@example.com'); await B.fill('#pw', 'Anestesia2026');
   await B.click('button[type=submit]');
-  await B.waitForSelector('.focus-card');
+  await B.waitForSelector('.today-card');
   await waitSynced(B);
   ok((await rows(B, 'vocabulary')).some((r) => r.word === 'expired word'), 'after re-login the change made during the expired session is synced (no data loss)');
 

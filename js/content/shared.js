@@ -25,6 +25,7 @@
       p.speaking = p.speaking || [];
       p.medical = p.medical || [];
       p.professional = p.professional || [];
+      p.abroad = p.abroad || [];
       p.checks = p.checks || [];
       p.pronunciation = p.pronunciation || [];
       p.errorCats = p.errorCats || [];
@@ -32,7 +33,7 @@
         grammar: Object.fromEntries(p.grammar.map((g) => [g.id, g])),
         vocab: Object.fromEntries(p.vocab.map((v) => [v.id, v])),
         texts: Object.fromEntries(p.texts.map((t) => [t.id, t])),
-        modules: Object.fromEntries([...p.medical, ...p.professional].map((m) => [m.id, m])),
+        modules: Object.fromEntries([...p.medical, ...p.professional, ...p.abroad].map((m) => [m.id, m])),
       };
       packs[code] = p;
       return p;
@@ -75,7 +76,8 @@
       { id: 'c2', label: 'C2 mastery', desc: 'Near-native precision and nuance.' },
     ],
     KIND_LABEL: { word: 'Word', collocation: 'Collocation', phrasal: 'Phrasal verb', idiom: 'Idiom', chunk: 'Chunk', expression: 'Fixed expression' },
-    DOMAIN_LABEL: { general: 'General', medical: 'Medical', professional: 'Professional', academic: 'Academic' },
+    DOMAIN_LABEL: { general: 'General', medical: 'Medical', professional: 'Professional', academic: 'Academic', abroad: 'Life abroad' },
+    ABROAD_CATS: [['arrival', 'Arrival'], ['firstweek', 'First week'], ['daily', 'Daily life'], ['workplace', 'Workplace'], ['social', 'Social life']],
     ERROR_CATS: [
       ['grammar', 'Grammar'], ['vocabulary', 'Vocabulary'], ['spelling', 'Spelling'], ['wordchoice', 'Word choice'],
       ['collocation', 'Collocation'], ['syntax', 'Syntax'], ['register', 'Register'], ['pronunciation', 'Pronunciation'],

@@ -311,6 +311,8 @@
             <div class="field"><label>Target level</label><select class="select" data-l="${c}" data-k="targetLevel">${U.LEVELS.map((l) => `<option ${L.targetLevel === l ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
             <div class="field"><label>Target date</label><input class="input" type="date" data-l="${c}" data-k="targetDate" value="${esc(L.targetDate)}"></div>
             <div class="field"><label>Share of daily time (%)</label><input class="input" type="number" min="5" max="95" data-w="${c}" value="${st.settings.langWeights[c] == null ? 50 : st.settings.langWeights[c]}"></div></div>
+          <div class="form-grid mt-16"><div class="field"><label>Concrete goal</label><select class="select" data-tg="${c}" data-k="type">${LOS.goals.TYPES.map((g) => `<option value="${g.id}" ${LOS.goals.targetOf(c).type === g.id ? 'selected' : ''}>${esc(g.label)}</option>`).join('')}</select></div>
+            <div class="field"><label>Target country</label><select class="select" data-tg="${c}" data-k="country"><option value="">—</option>${((LOS.COUNTRIES || {})[c] || []).map((x) => `<option ${(L.target || {}).country === x.label ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div></div>
           <div class="field mt-16"><label>Goals</label><div class="cluster">${LOS.shared.GOALS.map((g) => `<button class="chip ${L.goals.includes(g.id) ? 'active' : ''}" data-act="goal" data-l="${c}" data-v="${g.id}">${esc(g.label)}</button>`).join('')}</div></div>
           <div class="form-grid mt-16"><div class="field"><label>Voice</label><select class="select" data-tts="${c}" data-k="voice"><option value="">Automatic</option>${voices.map((v) => `<option ${tts.voice === v.name ? 'selected' : ''}>${esc(v.name)}</option>`).join('')}</select></div>
             <div class="field"><label>Speech rate <span class="num" id="rate-${c}">${tts.rate || 1}×</span></label><input type="range" min="0.6" max="1.4" step="0.05" data-tts="${c}" data-k="rate" value="${tts.rate || 1}"></div>
@@ -318,7 +320,7 @@
           <div class="cluster mt-16"><a class="btn sm" href="#/assessment" data-act="retake" data-l="${c}">Retake placement test</a><button class="btn sm danger" data-act="resetLang" data-l="${c}">Reset ${esc(p.name)} progress</button></div></div>`;
       }).join('');
       return `<div class="view narrow">
-        <div class="page-head"><div><h1>Settings</h1><p class="sub">Everything is stored locally in this browser.</p></div></div>
+        <div class="page-head"><div><h1>Settings</h1><p class="sub">Stored in your account and cached on this device.</p></div></div>
         <div class="section"><div class="section-head"><h2>Account</h2>${(() => { const i = LOS.sync.info; return `<span class="faint small">${esc(LOS.sync.label(i))}${i.lastSync ? ' · ' + new Date(i.lastSync).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : ''}</span>`; })()}</div>
           <div class="list">
             <div class="row"><div class="grow"><div class="title">${esc((LOS.auth.user && LOS.auth.user.email) || '')}</div><div class="meta">I tuoi dati sono salvati nel tuo database personale e sincronizzati tra i dispositivi.</div></div><button class="btn sm" data-act="syncNow">${icon('swap', 14)} Sincronizza ora</button></div>
@@ -331,6 +333,9 @@
           <div class="field"><label for="s-native">Native language</label><select class="select" id="s-native" data-p="native">${LOS.NATIVE_LANGUAGES.map(([v, l]) => `<option value="${v}" ${(st.profile.native || 'it') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
           <div class="field"><label for="s-field">Professional field</label><input class="input" id="s-field" data-p="field" value="${esc(st.profile.field)}"></div>
           <div class="field"><label for="s-spec">Specialty</label><input class="input" id="s-spec" data-p="specialty" value="${esc(st.profile.specialty)}"></div></div>
+          <div class="form-grid mt-16"><div class="field"><label for="s-dom">Professional domain</label><select class="select" id="s-dom" data-p="domain"><option value="">—</option>${LOS.goals.DOMAINS.map(([v, l]) => `<option value="${v}" ${LOS.goals.domainOf() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+            <div class="field"><label for="s-mot">Motivation</label><input class="input" id="s-mot" data-p="motivation" value="${esc(st.profile.motivation || '')}" placeholder="e.g. a fellowship in London next year"></div></div>
+          <div class="field mt-16"><label>Preferred study modes</label><div class="cluster">${Object.entries(LOS.planner.STUDY_MODES).map(([k, m]) => `<button class="chip ${(st.profile.modes || []).includes(k) ? 'active' : ''}" data-act="pmode" data-v="${k}" title="${esc(m.desc)}">${esc(m.label)}</button>`).join('')}</div></div>
           <div class="field mt-16"><label for="s-int">Interests</label><input class="input" id="s-int" data-p="interests" value="${esc((st.profile.interests || []).join(', '))}"></div>
           <div class="grid grid-2 mt-16"><div class="field"><label>Preferred difficulty</label>${ui.seg('diff', [['gentle', 'Gentle'], ['balanced', 'Balanced'], ['challenging', 'Challenging']], st.profile.difficulty)}</div>
           <div class="field"><label>Preferred study time</label>${ui.seg('stime', [['morning', 'Morning'], ['afternoon', 'Afternoon'], ['evening', 'Evening']], st.profile.studyTime)}</div></div></div>
@@ -346,17 +351,22 @@
             <div class="row"><span class="grow">Weekly load factor <span class="faint small">(adjusted by weekly reviews)</span></span><span class="num">${st.meta.loadFactor || 1}×</span><button class="btn ghost sm" data-act="resetLoad">Reset</button></div></div>
           <button class="btn mt-16" data-act="pattern">${icon('briefcase', 15)} Edit weekly work pattern</button></div>
         <div class="section"><div class="section-head"><h2>Appearance</h2></div>${ui.seg('theme', [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']], theme)}</div>
-        <div class="section"><div class="section-head"><h2>AI integration</h2>${LOS.AI.isRemote() ? '<span class="pill ok">Remote enabled</span>' : '<span class="pill">Local</span>'}</div>
-          <p class="muted small">All intelligent functions (generateExercise, evaluateWriting, evaluateSpeaking, generateVocabulary, generateListeningTask, evaluateAnswer, generateScenario, generateWeeklyPlan) run locally. To use an LLM, point this to <strong>your own backend proxy</strong> — never put API keys in this app.</p>
-          <div class="mt-16">${ui.seg('ai', [['local', 'Local only'], ['remote', 'Remote backend']], st.settings.ai.provider)}</div>
-          <div class="field mt-16"><label for="s-ep">Endpoint URL</label><input class="input" id="s-ep" data-ep value="${esc(st.settings.ai.endpoint)}" placeholder="https://your-proxy.example.com/lingua"></div>
+        <div class="section"><div class="section-head"><h2>AI tutor</h2>${LOS.AI.active() ? `<span class="pill ok">${esc(LOS.AI.providerLabel())}</span>` : '<span class="pill">Local only</span>'}</div>
+          <p class="muted small">The learning engine — queue, spaced review, mastery, error bank, sessions, progress — always runs locally and never needs AI. An AI provider only adds explanations, examples, conversation partners, open feedback, rewrites and text adaptation. Nothing here is required or paid by the app; <strong>never put API keys in this app</strong>.</p>
+          <div class="mt-16">${ui.seg('ai', [['local', 'Local only'], ['remote', 'My backend'], ['ollama', 'Local model (Ollama)']], st.settings.ai.provider || 'local')}</div>
+          ${st.settings.ai.provider === 'remote' ? `<div class="field mt-16"><label for="s-ep">Endpoint URL of your backend proxy</label><input class="input" id="s-ep" data-ep value="${esc(st.settings.ai.endpoint)}" placeholder="https://your-proxy.example.com/lingua"></div>
           <details class="mt-12"><summary class="small muted" style="cursor:pointer">Request format</summary><pre class="card soft small mono" style="white-space:pre-wrap;margin-top:8px">POST &lt;endpoint&gt;
-{ "task": "evaluateWriting", "lang": "en", "payload": { "text": "…", "level": "B2", "reg": "formal" } }
+{ "task": "assess", "lang": "en", "payload": { … }, "tutor": { level, rules, knownVocabulary, learningNow, recurringErrors, errorBank, weaknesses, goal, domain, recentLessons } }
 
-→ respond with JSON in the same shape the local implementation returns
-  (e.g. scores, sentencesOut[{original, corrected, natural, issues}], estTheta, notes).
-Any error or timeout falls back to the local implementation.</pre></details>
-          <button class="btn sm mt-12" data-act="testAI">Test connection</button></div>
+Tasks: explain · examples · simTurn · assess · transform · adaptContent
+(and the structured ones: evaluateWriting, evaluateSpeaking, evaluateAnswer, generateExercise, …,
+ which must return the same JSON shape as the local implementation).
+Respond with JSON. Any error or timeout falls back to the local implementation.</pre></details>` : ''}
+          ${st.settings.ai.provider === 'ollama' ? `<div class="form-grid mt-16"><div class="field"><label for="s-ol">Ollama URL</label><input class="input" id="s-ol" data-ol="url" value="${esc((st.settings.ai.ollama || {}).url || 'http://localhost:11434')}"></div>
+            <div class="field"><label for="s-om">Model</label><input class="input" id="s-om" data-ol="model" value="${esc((st.settings.ai.ollama || {}).model || 'llama3.1')}"></div></div>
+            <p class="faint small mt-8">Free and private: the model runs on this computer. Install Ollama, run <span class="mono">ollama pull llama3.1</span>, and allow this site: <span class="mono">OLLAMA_ORIGINS=${esc(location.origin)} ollama serve</span>. Not available on phones.</p>` : ''}
+          <label class="check small mt-12"><input type="checkbox" data-simvoice ${st.settings.simVoice !== false ? 'checked' : ''}> Read the conversation partner's lines aloud in simulations</label>
+          ${st.settings.ai.provider && st.settings.ai.provider !== 'local' ? '<div><button class="btn sm mt-12" data-act="testAI">Test connection</button></div>' : ''}</div>
         <div class="section"><div class="section-head"><h2>Data</h2><span class="faint small">stored in your Supabase database · cached on this device</span></div>
           <div class="cluster"><button class="btn" data-act="export">${icon('download', 15)} Export JSON</button><button class="btn" data-act="import">${icon('upload', 15)} Import JSON</button><a class="btn ghost" href="#/welcome/new">Add a language</a><button class="btn danger right" data-act="resetAll">${icon('trash', 15)} Delete all study data</button></div></div>
         <div class="section"><div class="section-head"><h2>Capabilities in this browser</h2></div>
@@ -378,6 +388,7 @@ Any error or timeout falls back to the local implementation.</pre></details>
       root.querySelector('[data-restday]').addEventListener('change', (e) => { st.settings.restDay = e.target.value === '' ? null : +e.target.value; save(); LOS.planner.ensureToday(); });
       root.querySelector('[data-reviewday]').addEventListener('change', (e) => { st.settings.reviewDay = +e.target.value; save(); });
       root.querySelectorAll('[data-l][data-k]').forEach((el) => el.addEventListener('change', () => { const L = st.langs[el.dataset.l]; L[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value; save(); if (el.dataset.k === 'enabled') { LOS.planner.ensureToday(); LOS.app.refresh(); } }));
+      root.querySelectorAll('[data-tg]').forEach((el) => el.addEventListener('change', () => { const L = st.langs[el.dataset.tg]; L.target = Object.assign({}, LOS.goals.targetOf(el.dataset.tg), L.target, { [el.dataset.k]: el.value }); save(); }));
       root.querySelectorAll('[data-w]').forEach((el) => el.addEventListener('change', () => { st.settings.langWeights[el.dataset.w] = U.clamp(+el.value || 50, 5, 95); save(); LOS.planner.ensureToday(); }));
       root.querySelectorAll('[data-tts]').forEach((el) => el.addEventListener(el.type === 'range' ? 'input' : 'change', () => {
         const c = el.dataset.tts; const o = (st.settings.tts[c] = st.settings.tts[c] || {});
@@ -385,10 +396,13 @@ Any error or timeout falls back to the local implementation.</pre></details>
         if (el.type === 'range') root.querySelector('#rate-' + c).textContent = el.value + '×';
         save();
       }));
-      const ep = root.querySelector('[data-ep]'); ep.addEventListener('change', () => { st.settings.ai.endpoint = ep.value.trim(); save(); });
+      const ep = root.querySelector('[data-ep]'); if (ep) ep.addEventListener('change', () => { st.settings.ai.endpoint = ep.value.trim(); save(); });
+      root.querySelectorAll('[data-ol]').forEach((el) => el.addEventListener('change', () => { st.settings.ai.ollama = Object.assign({}, st.settings.ai.ollama, { [el.dataset.ol]: el.value.trim() }); save(); }));
+      const sv = root.querySelector('[data-simvoice]'); if (sv) sv.addEventListener('change', () => { st.settings.simVoice = sv.checked; save(); });
       ui.delegate(root, {
         diff(el) { st.profile.difficulty = el.dataset.v; save(); LOS.app.refresh(); },
         stime(el) { st.profile.studyTime = el.dataset.v; save(); LOS.app.refresh(); },
+        pmode(el) { const m = st.profile.modes || []; st.profile.modes = m.includes(el.dataset.v) ? m.filter((x) => x !== el.dataset.v) : m.concat([el.dataset.v]); save(); LOS.app.refresh(); },
         wstart(el) { st.settings.weekStart = +el.dataset.v; save(); LOS.app.refresh(); },
         theme(el) { LOS.app.setTheme(el.dataset.v); LOS.app.refresh(); },
         ai(el) { st.settings.ai.provider = el.dataset.v; save(); LOS.app.refresh(); },
@@ -448,11 +462,11 @@ Any error or timeout falls back to the local implementation.</pre></details>
           LOS.store.reset(); await LOS.sync.flush(); location.hash = '#/welcome'; LOS.app.refresh(true);
         },
         async testAI() {
-          if (!st.settings.ai.endpoint) { ui.toast('Enter an endpoint first', 'info'); return; }
-          const prev = st.settings.ai.provider; st.settings.ai.provider = 'remote';
-          const r = await LOS.AI.evaluateAnswer(LOS.store.active() || 'en', { prompt: 'test', answer: 'This is a test sentence.', level: 'B2' });
-          st.settings.ai.provider = prev;
-          ui.toast(r && r._source === 'remote' ? 'Backend responded ✓' : 'No valid response — local fallback in use', r && r._source === 'remote' ? 'check' : 'errors');
+          const pv = st.settings.ai.provider;
+          if (pv === 'remote' && !st.settings.ai.endpoint) { ui.toast('Enter an endpoint first', 'info'); return; }
+          ui.toast('Testing…', 'info');
+          const r = await LOS.AIProvider.call('explain', LOS.store.active() || 'en', { question: 'the difference between "make" and "do"', level: 'B1' });
+          ui.toast(r ? `${LOS.AI.providerLabel()} responded ✓` : 'No valid response — the local implementation stays in use', r ? 'check' : 'errors');
         },
       });
     },

@@ -264,6 +264,16 @@
       return Object.assign(base, { type: 'writing', title: 'Writing', subtitle: `${w.genre}: ${w.title}`, level: w.l, payload: { promptId: w.id } });
     }
     if (skill === 'speaking') {
+      const sl = LOS.ped.speakLevel(code);
+      const rung = LOS.ped.SPEAK_LADDER[sl];
+      if (sl <= 2) {
+        const n = U.clamp(Math.round(minutes / 1.2), 3, 8);
+        return Object.assign(base, { type: 'think', skill: 'speaking', title: `Speaking · level ${sl} of 8`, subtitle: `${rung.label} · ${n} prompts`, payload: { count: n, type: rung.think[0] } });
+      }
+      if (rung.sim && minutes >= 8 && rnd() < 0.6) {
+        const sim = LOS.sim && LOS.sim.pick(code, { rnd });
+        if (sim) return Object.assign(base, { type: 'sim', title: `Speaking · level ${sl} of 8`, subtitle: `${rung.label}: ${sim.title}`, level: sim.l, payload: { moduleId: sim.moduleId, idx: sim.idx } });
+      }
       const pro = ctx.goals.includes('work') ? 0.3 : 0;
       if (ctx.med > 0.3 && rnd() < ctx.med + 0.1) {
         const sc = LOS.learn.pickScenario(code, 'medical', { rnd });
@@ -309,8 +319,8 @@
     return { id: U.uid('it'), type: 'review', skill: 'review', title, subtitle: dueLine || `${cap} items`, minutes, status: 'pending', reason, payload: { cap } };
   }
   function microItem(minutes, focus, count, reason) {
-    const sub = { controlled: 'Controlled practice', application: 'Apply today’s language', sentence: 'Use it in one sentence', dialogue: 'Mini dialogue', mixed: 'Short tasks' }[focus];
-    return { id: U.uid('it'), type: 'micro', skill: focus === 'controlled' ? 'vocabulary' : 'think', title: focus === 'controlled' ? 'Controlled practice' : focus === 'dialogue' ? 'Mini dialogue' : 'Application', subtitle: `${sub} · ${count} short tasks`, minutes, status: 'pending', reason, payload: { focus, count } };
+    const sub = { controlled: 'Controlled practice', application: 'Apply today’s language', sentence: 'Use it in one sentence', dialogue: 'Mini dialogue', mixed: 'Short tasks', retrieval: 'Recall without seeing the answer', commute: 'Listen · repeat · recognise', break: 'Quick retrieval' }[focus];
+    return { id: U.uid('it'), type: 'micro', skill: focus === 'controlled' || focus === 'retrieval' ? 'vocabulary' : focus === 'commute' ? 'listening' : 'think', title: { controlled: 'Controlled practice', dialogue: 'Mini dialogue', retrieval: 'Retrieval', commute: 'Shadowing & listening', sentence: 'One sentence' }[focus] || 'Application', subtitle: `${sub} · ${count} short tasks`, minutes, status: 'pending', reason, payload: { focus, count } };
   }
   function grammarOrRemedy(ctx, minutes, mode, rnd, allowRemedy) {
     const rem = allowRemedy && LOS.ped.remedyCandidate(ctx.code);
@@ -328,7 +338,13 @@
       const m = LOS.lang.get(ctx.code).index.modules[moduleId];
       if (m) return { id: U.uid('it'), type: 'scenario', skill: 'speaking', title: m.id.includes('-med-') ? 'Medical scenario' : 'Professional scenario', subtitle: `${m.title} · next step`, level: m.l, minutes, status: 'pending', reason: 'Scenario path: language → controlled → guided → free', payload: { moduleId, idx: +idx || 0 } };
     }
-    return microItem(minutes, 'application', U.clamp(Math.round(minutes * 1.2), 4, 10), 'Use the language you just practised');
+    // a weakness found in the last scenario simulation decides the kind of application
+    const sim = (ctx.lang.sims || [])[0];
+    const weak = sim && U.diffDays(sim.date, ctx.date) <= 7 ? (sim.weak || [])[0] : null;
+    if (weak === 'interaction') return microItem(minutes, 'dialogue', U.clamp(Math.round(minutes * 1.2), 4, 8), 'Your last simulation: interaction was the weakest point \u2014 short exchanges');
+    if (weak === 'fluency') return { id: U.uid('it'), type: 'think', skill: 'speaking', title: 'Fluency', subtitle: 'Rapid responses \u00b7 no translating', minutes, status: 'pending', reason: 'Your last simulation: fluency was the weakest point', payload: { count: U.clamp(Math.round(minutes / 1.2), 3, 8), type: 'rapid' } };
+    if (weak === 'vocabulary' && sim.key) { const mid = sim.key.split(':')[0]; return { id: U.uid('it'), type: 'lesson', skill: 'vocabulary', title: 'The language you need', subtitle: sim.title, minutes, status: 'pending', reason: 'Your last simulation: vocabulary was the weakest point \u2014 learn the language of the scenario', payload: { kind: 'scenario', moduleId: mid, idx: 0, title: sim.title } }; }
+    return microItem(minutes, 'application', U.clamp(Math.round(minutes * 1.2), 4, 10), weak === 'professional' || weak === 'naturalness' ? 'Your last simulation: register and naturalness \u2014 practise them in context' : 'Use the language you just practised');
   }
   function challengeItem(ctx, mode, rnd) {
     if (mode === 'recovery' || mode === 'mvs') return null;
@@ -344,61 +360,133 @@
     return Object.assign(base, { type: 'speaking', skill: 'speaking', title: 'Challenge · full speaking task', subtitle: t.title, level: t.l, payload: { taskId: t.id, challenge: true } });
   }
 
+  /* Production slot: speaking (on the speaking ladder), writing, or a scenario simulation for the goal. */
+  function productionItem(ctx, minutes, mode, rnd) {
+    const w = skillWeights(ctx, mode);
+    const goalPro = (ctx.goals || []).some((g) => g === 'medical' || g === 'work') || (ctx.lang.target && ctx.lang.target.type !== 'fluency');
+    if (minutes >= 8 && goalPro && mode !== 'recovery' && rnd() < 0.45) {
+      const sim = LOS.sim && LOS.sim.pick(ctx.code, { rnd });
+      if (sim) return { id: U.uid('it'), type: 'sim', skill: 'speaking', title: 'Scenario simulation', subtitle: sim.title, level: sim.l, minutes, status: 'pending', reason: 'A realistic conversation: the other person reacts to what you say', payload: { moduleId: sim.moduleId, idx: sim.idx } };
+    }
+    const skill = minutes >= 10 && w.writing > w.speaking * 1.15 ? 'writing' : 'speaking';
+    return makeItem(ctx, skill, minutes, mode, rnd, reasonFor(ctx, skill, w));
+  }
+  const STUDY_MODES = {
+    commute: { label: 'Commute', desc: 'Listening, recognition, pronunciation, shadowing — no typing' },
+    break: { label: 'Break', desc: '5-minute retrieval: vocabulary, grammar correction, one sentence' },
+    evening: { label: 'Evening', desc: 'A balanced 20–30 minute session' },
+    deep: { label: 'Deep study', desc: '45+ minutes: new material, speaking, writing, scenarios' },
+  };
+
   /** generateDailyPlan(): the core decision of the app. */
   function generateDailyPlan(code, date, minutes, opts = {}) {
     const p = LOS.lang.get(code);
     const ctx = context(code, date);
     const rnd = U.rng(`${date}|${code}|${opts.salt || ''}`);
     const mode = opts.mode || (minutes <= 15 ? 'mvs' : minutes <= 20 ? 'light' : minutes >= 50 ? 'deep' : 'standard');
+    const study = opts.study || null; // commute | break | evening | deep (chosen by the learner)
     const items = [];
     const push = (it) => { if (it) items.push(it); };
     const dueLine = [ctx.dueV && `${ctx.dueV} vocabulary`, ctx.dueG.length && `${ctx.dueG.length} grammar`, ctx.dueE && `${ctx.dueE} error card${ctx.dueE > 1 ? 's' : ''}`].filter(Boolean).join(' · ');
     const hasMemory = Object.keys(ctx.lang.vocab).some((id) => !ctx.lang.vocab[id].assumed) || ctx.dueG.length || ctx.dueE;
     const newN = mode === 'recovery' ? 3 : ctx.backlog > 40 ? 3 : 5;
-    const vocabNew = (m, n) => { const v = makeItem(ctx, 'vocabulary', m, mode, rnd, 'New language before it is tested: see → hear → recognize → recall'); if (v) { v.payload.count = n; v.subtitle = `${n} new words & chunks${ctx.med > 0.3 ? ' · incl. medical' : ''}`; } return v; };
+    const handsFree = study === 'commute';
+    const review = (m, cap, title, reason) => { const r = reviewItem(ctx, m, cap, title || 'Review', reason || (mode === 'recovery' ? 'Welcome back: the most useful reviews only — nothing to catch up on' : 'Spaced retrieval: recall before you forget'), dueLine); if (handsFree) { r.payload.handsFree = true; r.subtitle = 'Listen and recognise · no typing'; } return r; };
+    const vocabNew = (m, n) => { const v = makeItem(ctx, 'vocabulary', m, mode, rnd, 'New language before it is tested: see → hear → recognize → recall'); if (v) { v.payload.count = n; v.payload.handsFree = handsFree || undefined; v.subtitle = `${n} new words & chunks${ctx.med > 0.3 ? ' · incl. medical' : ''}`; } return v; };
     let challenge = null;
 
-    if (minutes <= 7) {
-      // Minimum session (5 min): 5 vocabulary reviews, 2 grammar questions, 1 sentence.
-      push(hasMemory ? reviewItem(ctx, 2, 5, 'Quick review', 'Keep the spaced-repetition chain alive', dueLine) : vocabNew(2, 3));
-      const g = makeItem(ctx, 'grammar', 2, mode, rnd, 'Two targeted questions');
-      if (g) { g.payload.count = 2; g.payload.learn = false; push(g); }
-      push(microItem(Math.max(1, minutes - 4), 'sentence', 1, 'One sentence of your own with what you know'));
+    if (handsFree) {
+      // COMMUTE: listening, recognition, pronunciation, shadowing, short dialogues — never typing
+      const m = Math.max(5, minutes);
+      if (hasMemory) push(review(Math.max(2, Math.round(m * 0.25)), Math.round(m * 0.8)));
+      if (m >= 10) push(vocabNew(Math.round(m * 0.2), 3));
+      const t = LOS.learn.pickText(code, 'listening', { rnd });
+      if (t && m >= 10) push({ id: U.uid('it'), type: 'listening', skill: 'listening', title: 'Listening', subtitle: `Guided: ${t.title}`, level: t.l, minutes: Math.round(m * 0.35), status: 'pending', reason: 'Input you can follow on the move', payload: { mode: 'guided', textId: t.id, short: m < 20 } });
+      push(microItem(Math.max(2, m - U.sum(items.map((i) => i.minutes))), 'commute', U.clamp(Math.round(m * 0.5), 3, 8), 'Listen, repeat, recognise — shadowing builds pronunciation and fluency'));
+    } else if (minutes <= 7 || study === 'break') {
+      // 5 MINUTES: 2–3 reviews · 1–2 high-value new items · one retrieval · one very short production
+      if (hasMemory) push(review(2, 3, 'Quick review'));
+      push(vocabNew(1, hasMemory ? 1 : 2));
+      push(microItem(1, 'retrieval', 2, 'One retrieval: recall without seeing the answer'));
+      push(microItem(Math.max(1, minutes - U.sum(items.map((i) => i.minutes))), 'sentence', 1, 'One sentence of your own with what you know'));
     } else if (minutes <= 12) {
-      // 10 minutes: vocabulary, grammar, mini dialogue.
-      push(hasMemory ? reviewItem(ctx, 3, 8, 'Review', 'Spaced repetition: retrieve before you forget', dueLine) : vocabNew(3, 3));
+      // 10 minutes: vocabulary, grammar, mini dialogue
+      push(hasMemory ? review(3, 8) : vocabNew(3, 3));
       const g = makeItem(ctx, 'grammar', 3, mode, rnd, 'One grammar step');
       if (g) { g.payload.count = 3; g.payload.learn = g.payload.learn && mode !== 'recovery'; push(g); }
       push(microItem(Math.max(3, minutes - 6), 'dialogue', 3, 'A short exchange using known language'));
+    } else if (minutes <= 20) {
+      // 15 MINUTES: review 2 · new input 5 · retrieval 4 · production 4
+      const f = minutes / 15;
+      const rv = hasMemory ? Math.max(2, Math.round(2 * f)) : 0;
+      if (rv) push(review(rv, 6));
+      push(vocabNew(Math.round(5 * f) + (rv ? 0 : 2), mode === 'recovery' ? 3 : 4));
+      push(microItem(Math.round(4 * f), 'retrieval', 5, 'Retrieval: recall the new and recent language'));
+      const rem = minutes - U.sum(items.map((i) => i.minutes));
+      const pr = mode !== 'recovery' && ctx.th.speaking <= ctx.th.writing + 0.3 ? makeItem(ctx, 'speaking', rem, mode, rnd, 'Production: say it, at your speaking-ladder step') : null;
+      push(pr && pr.type === 'speaking' ? pr : microItem(rem, 'application', 4, 'Production: use today’s language'));
+    } else if (minutes <= 25) {
+      // 20 minutes: review · new · controlled · grammar (or error clinic)
+      const rv = hasMemory ? 5 : 0;
+      if (rv) push(review(rv, 15));
+      push(vocabNew(rv ? 5 : 7, newN));
+      push(microItem(5, 'controlled', 8, 'Controlled practice of what you are learning'));
+      push(grammarOrRemedy(ctx, Math.max(3, minutes - U.sum(items.map((i) => i.minutes))), mode, rnd, true));
+    } else if (minutes <= 37) {
+      // 30 MINUTES: spaced review 5 · new material 8 · controlled/guided practice 7 · production 10
+      const f = minutes / 30;
+      const rv = hasMemory ? Math.round(5 * f) : 0;
+      if (rv) push(review(rv, 15));
+      push(vocabNew(Math.round(4 * f) + (rv ? 0 : 3), newN));
+      push(grammarOrRemedy(ctx, Math.round(4 * f) + (rv ? 0 : 2), mode, rnd, true));
+      push(applicationItem(ctx, Math.round(7 * f), mode, rnd));
+      push(productionItem(ctx, Math.max(6, minutes - U.sum(items.map((i) => i.minutes))), mode, rnd));
+      challenge = challengeItem(ctx, mode, rnd);
     } else {
-      // Core lesson: review 5 · new 5 · controlled 5 · grammar/clinic 5 (scaled to the available time).
-      const core = Math.min(minutes, 20);
-      const f = core / 20;
-      const rv = hasMemory ? Math.max(3, Math.round(5 * f)) : 0;
-      if (rv) push(reviewItem(ctx, rv, Math.max(6, Math.round(rv * 3)), 'Review', mode === 'recovery' ? 'Recovery: most important reviews only — the rest are spread out' : 'Spaced repetition: retrieve before you forget', dueLine));
-      const vn = Math.max(3, Math.round(5 * f) + (rv ? 0 : 2));
-      push(vocabNew(vn, newN));
-      const cp = Math.max(3, Math.round(5 * f));
-      push(microItem(cp, 'controlled', U.clamp(Math.round(cp * 1.6), 5, 10), 'Controlled practice of what you are learning'));
-      const gm = Math.max(3, core - rv - vn - cp) + (minutes > 20 && minutes <= 25 ? minutes - 20 : 0);
-      push(grammarOrRemedy(ctx, gm, mode, rnd, minutes >= 18));
+      // 45+ MINUTES (deep study): new material, deeper practice, input, speaking, writing, scenario simulation
+      const rv = hasMemory ? 5 : 0;
+      if (rv) push(review(rv, 15));
+      push(vocabNew(rv ? 5 : 8, newN));
+      push(grammarOrRemedy(ctx, 6, mode, rnd, true));
+      push(microItem(5, 'controlled', 8, 'Controlled practice of what you are learning'));
+      push(applicationItem(ctx, 6, mode, rnd));
       let rem = minutes - U.sum(items.map((i) => i.minutes));
-      if (minutes > 25 && rem >= 4) {
-        const ap = minutes <= 35 ? rem : 5;
-        push(applicationItem(ctx, ap, mode, rnd));
-        rem = minutes - U.sum(items.map((i) => i.minutes));
+      const w = skillWeights(ctx, mode);
+      const input = (w.listening >= w.reading ? 'listening' : 'reading');
+      const im = Math.min(12, Math.max(8, Math.round(rem * 0.4)));
+      push(makeItem(ctx, input, im, mode, rnd, reasonFor(ctx, input, w)));
+      rem = minutes - U.sum(items.map((i) => i.minutes));
+      if (rem >= 8) { push(productionItem(ctx, Math.min(rem, 15), mode, rnd)); rem = minutes - U.sum(items.map((i) => i.minutes)); }
+      if (rem >= 8) {
+        const pool = {}; ['writing', 'speaking', 'think', 'listening', 'reading'].forEach((k) => { if (!items.some((i) => i.skill === k)) pool[k] = w[k]; });
+        allocate(rem, pool, mode).forEach((b) => push(makeItem(ctx, b.skill, b.minutes, mode, rnd, reasonFor(ctx, b.skill, w))));
       }
-      if (rem >= 6) {
-        // Longer days: input and production, chosen by skill weights (weakest skills first, goals, errors, balance).
-        const w = skillWeights(ctx, mode);
-        const pool = {}; ['listening', 'reading', 'writing', 'speaking'].concat(minutes > 50 ? ['think'] : []).forEach((k) => { pool[k] = w[k]; });
-        const blocks = allocate(rem, pool, minutes > 35 && mode !== 'recovery' ? 'deep' : mode);
-        blocks.forEach((b) => push(makeItem(ctx, b.skill, b.minutes, mode, rnd, reasonFor(ctx, b.skill, w))));
-      } else if (rem > 0 && items.length) items[items.length - 1].minutes += rem;
-      if (minutes > 25) challenge = challengeItem(ctx, mode, rnd);
+      rem = minutes - U.sum(items.map((i) => i.minutes));
+      if (rem > 0 && items.length) items[items.length - 1].minutes += rem;
+      challenge = challengeItem(ctx, mode, rnd);
     }
+    // "Why am I learning this?" — only where it adds relevance (goal-linked activities)
+    items.forEach((it) => { const y = LOS.goals ? LOS.goals.why(code, it) : ''; if (y) it.why = y; });
     const main = items.filter((i) => i.type !== 'review' && i.type !== 'micro').sort((a, b) => b.minutes - a.minutes)[0] || items[0];
-    return { date, code, minutes: U.sum(items.map((i) => i.minutes)), mode, items, challenge, focus: focusFrom(main, p), generatedAt: Date.now(), sig: opts.sig || '', extra: !!opts.extra, v: 2 };
+    return { date, code, minutes: U.sum(items.map((i) => i.minutes)), mode, study, items, challenge, focus: focusFrom(main, p), generatedAt: Date.now(), sig: opts.sig || '', extra: !!opts.extra, v: 3 };
+  }
+
+  /** The learner says "I have N minutes" (and optionally a study mode): today's plan is rebuilt around it.
+   * Completed activities stay; only the pending ones are replaced. The chosen language gets the whole session. */
+  function setSession(code, minutes, study) {
+    const date = U.today();
+    const day = LOS.store.day(date);
+    day.session = { code, minutes, study: study || null };
+    const lang = LG(code);
+    const existing = lang.plans[date];
+    const done = existing ? existing.items.filter((i) => i.status !== 'pending') : [];
+    const mode = recoveryState(date).active ? 'recovery' : undefined;
+    const plan = generateDailyPlan(code, date, minutes, { mode, study, salt: 'session' + Date.now(), sig: 'session' });
+    plan.items = done.concat(plan.items);
+    plan.chosen = { minutes, study: study || null };
+    lang.plans[date] = plan;
+    LOS.store.save();
+    return plan;
   }
 
   /* ---------------- today's plans (stored, regenerated when inputs change) ---------------- */
@@ -430,10 +518,11 @@
       const started = existing && existing.items.some((i) => i.status !== 'pending');
       const sig = `${share ? share.minutes : 0}|${b.mode}|${b.info.kind}|${b.info.lowEnergy}|${b.info.rest}`;
       if (!share) {
-        if (existing && !started && !existing.extra) delete lang.plans[date];
+        if (existing && !started && !existing.extra && !existing.chosen) delete lang.plans[date];
         else if (existing) out.push({ code, plan: existing });
         return;
       }
+      if (existing && existing.chosen && !force) { out.push({ code, plan: existing }); return; }
       if (!existing || force === code || force === true || (!started && existing.sig !== sig && !existing.extra)) {
         lang.plans[date] = generateDailyPlan(code, date, share.minutes, { mode: b.mode === 'recovery' ? 'recovery' : b.mode === 'mvs' ? 'mvs' : undefined, sig, salt: force ? Date.now() : '' });
       }
@@ -523,6 +612,6 @@
   LOS.planner = {
     MIN_BLOCK, TYPE_LABEL,
     calculateWorkload, dayInfo: calculateWorkload, recoveryState, dayBudget, splitLanguages, context, skillWeights, allocate,
-    generateDailyPlan, ensureToday, completeItem, skipItem, swapItem, addExtraSession, forecast, generateWeeklyPlan, scheduleEntry,
+    STUDY_MODES, setSession, generateDailyPlan, ensureToday, completeItem, skipItem, swapItem, addExtraSession, forecast, generateWeeklyPlan, scheduleEntry,
   };
 })();

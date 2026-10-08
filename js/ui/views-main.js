@@ -11,11 +11,11 @@
 
   /* ---------------- shell ---------------- */
   const NAV = [
-    { group: 'Learn', items: [['dashboard', 'Dashboard', 'dashboard'], ['today', 'Today', 'today'], ['grammar', 'Grammar', 'grammar'], ['vocabulary', 'Vocabulary', 'vocabulary'], ['reading', 'Reading', 'reading'], ['listening', 'Listening', 'listening'], ['writing', 'Writing', 'writing'], ['speaking', 'Speaking', 'speaking'], ['pronunciation', 'Pronunciation', 'volume'], ['think', 'Think in the language', 'think'], ['compare', 'Compare languages', 'swap']] },
-    { group: 'Professional', items: [['medical', 'Medical Language', 'medical'], ['professional', 'Professional Communication', 'professional']] },
-    { group: 'Track', items: [['calendar', 'Calendar', 'calendar'], ['progress', 'Progress', 'progress'], ['errors', 'Error Log', 'errors'], ['review', 'Weekly Review', 'review']] },
+    { group: 'Learn', items: [['dashboard', 'Dashboard', 'dashboard'], ['today', 'Today', 'today'], ['grammar', 'Grammar', 'grammar'], ['vocabulary', 'Vocabulary', 'vocabulary'], ['reading', 'Reading', 'reading'], ['listening', 'Listening', 'listening'], ['writing', 'Writing', 'writing'], ['speaking', 'Speaking', 'speaking'], ['pronunciation', 'Pronunciation', 'volume'], ['think', 'Think in the language', 'think'], ['compare', 'Compare languages', 'swap'], ['library', 'Input library', 'reading']] },
+    { group: 'Real world', items: [['medical', 'Medical Language', 'medical'], ['professional', 'Professional Communication', 'professional'], ['abroad', 'Life Abroad', 'globe']] },
+    { group: 'Track', items: [['calendar', 'Calendar', 'calendar'], ['progress', 'Progress', 'progress'], ['errors', 'Error Bank', 'errors'], ['review', 'Weekly Review', 'review']] },
   ];
-  const ROUTE_TITLE = { dashboard: 'Dashboard', today: 'Today', grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', pronunciation: 'Pronunciation', compare: 'Compare', medical: 'Medical', professional: 'Professional', calendar: 'Calendar', progress: 'Progress', errors: 'Error Log', review: 'Weekly Review', settings: 'Settings', assessment: 'Assessment', session: 'Session', practice: 'Practice' };
+  const ROUTE_TITLE = { dashboard: 'Dashboard', today: 'Today', grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', pronunciation: 'Pronunciation', compare: 'Compare', medical: 'Medical', professional: 'Professional', calendar: 'Calendar', progress: 'Progress', errors: 'Error Bank', review: 'Weekly Review', settings: 'Settings', assessment: 'Assessment', session: 'Session', practice: 'Practice', abroad: 'Life Abroad', library: 'Input library' };
 
   /** Compact language selector: "🇩🇪 Deutsch · A2 ▾" with a menu of all languages. */
   function langSwitch(where) {
@@ -39,8 +39,7 @@
       const dueCount = (() => { const c = LOS.store.active(); if (!c || !S().langs[c] || !S().langs[c].onboarded) return 0; return LOS.learn.dueVocab(c).length + LOS.learn.dueErrorCards(c).length + LOS.learn.grammarList(c).filter((g) => g.due).length; })();
       const pending = (() => { const c = LOS.store.active(); const p = c && S().langs[c] && S().langs[c].plans[U.today()]; return p ? p.items.filter((i) => i.status === 'pending').length : 0; })();
       const reviewDue = LOS.store.studying().some((c) => LOS.progress.weeklyReviewDue(c));
-      const streak = LOS.learn.streak();
-      sb.innerHTML = `<div class="brand"><span class="brand-mark">L</span>Lingua OS<small>${streak ? `${icon('flame', 12)} ${streak}` : ''}</small></div>
+      sb.innerHTML = `<div class="brand"><span class="brand-mark">L</span>Lingua OS</div>
         ${langSwitch('side')}
         <nav aria-label="Sections">${NAV.map((g) => `<div class="nav-label">${g.group}</div>${g.items.map(([r, l, ic]) => `<a class="nav-item ${route === r ? 'active' : ''}" href="#/${r}" ${route === r ? 'aria-current="page"' : ''}>${icon(ic, 17)}<span>${l}</span>${r === 'today' && pending ? `<span class="badge">${pending}</span>` : ''}${r === 'grammar' || r === 'vocabulary' ? '' : ''}${r === 'review' && reviewDue ? '<span class="badge accent">1</span>' : ''}</a>`).join('')}`).join('')}</nav>
         <div class="sidebar-foot">
@@ -65,7 +64,7 @@
     return `<div class="today-item ${st}${it.optional ? ' optional' : ''}" data-id="${it.id}">
       <button class="tick" ${st === 'pending' ? `data-act="go" data-href="${href}" aria-label="Start ${esc(it.title)}"` : `aria-label="${st}" disabled`}>${st === 'done' ? icon('check', 14) : ''}</button>
       <div><div class="t"><span>${esc(it.title)}</span>${it.level ? `<span class="pill">${esc(it.level)}</span>` : ''}${st === 'skipped' ? '<span class="pill">skipped</span>' : st === 'missed' ? '<span class="pill">missed</span>' : ''}</div>
-        <div class="s">${esc(it.subtitle || '')}</div>${opts.reasons !== false && it.reason ? `<div class="r">${esc(it.reason)}</div>` : ''}</div>
+        <div class="s">${esc(it.subtitle || '')}</div>${opts.reasons !== false && it.reason ? `<div class="r">${esc(it.reason)}</div>` : ''}${opts.reasons !== false && it.why ? `<div class="r faint">${esc(it.why)}</div>` : ''}</div>
       <div><div class="m">${it.minutes} min</div>${st === 'pending' && opts.actions !== false ? `<div class="acts"><a class="btn sm" href="${href}">Start</a><button class="btn ghost icon sm" data-act="swap" data-code="${code}" data-id="${it.id}" title="Swap for another activity" aria-label="Swap activity">${icon('swap', 14)}</button><button class="btn ghost icon sm" data-act="skip" data-code="${code}" data-id="${it.id}" title="Skip — no backlog is created" aria-label="Skip activity">${icon('skip', 14)}</button></div>` : st === 'done' && it.actual ? `<div class="faint xs" style="text-align:right">${it.actual} min done</div>` : ''}</div>
     </div>`;
   }
@@ -136,9 +135,10 @@
       const panel = contextPanel(code, budget, plan, week, reviewDue);
 
       return `<div class="view wide"><div class="with-panel"><div>
-        <div class="hero"><div class="greet">${U.greeting()}${name}.</div>${focus}
+        <div class="hero"><div class="greet">${U.greeting()}${name}.</div>${LOS.adaptUI.home(code, { plan, budget, first, other, focus, info })}
           <div class="energy-strip">${icon(budget.mode === 'mvs' ? 'battery' : 'activity', 14)}<span>${esc(info.label)}</span><span>·</span><span>${esc(modeLabel(budget.mode))}</span>${budget.why[1] ? `<span>·</span><span>${esc(budget.why[1])}</span>` : ''}
           <button class="btn ghost sm" data-act="lowEnergy">${info.lowEnergy ? 'Normal energy' : 'Low energy today'}</button></div></div>
+        <details class="more-details"><summary>Today's activities, languages and skills</summary>
         ${today}
         <div class="section"><div class="section-head"><h2>Language overview</h2><a class="small" href="#/progress">Roadmap</a></div><div class="lang-cards">${langs}</div></div>
         <div class="section grid grid-2" style="--gap:48px">
@@ -159,10 +159,11 @@
             <div class="stat"><span class="v">${Math.round(week.consistency * 100)}%</span><span class="k">Consistency</span></div>
             <div class="stat"><span class="v">${week.reviewAcc == null ? '—' : Math.round(week.reviewAcc * 100) + '%'}</span><span class="k">Review accuracy</span></div>
           </div></div>
+        </details>
       </div>${panel}</div></div>`;
     },
     mount(root) {
-      ui.delegate(root, Object.assign(itemHandlers(() => LOS.app.refresh()), {
+      ui.delegate(root, Object.assign(itemHandlers(() => LOS.app.refresh()), LOS.adaptUI.homeHandlers, {
         switch(el, e) { e.preventDefault(); LOS.store.setActive(el.dataset.code); },
         extra() { LOS.planner.addExtraSession(LOS.store.active(), 15); LOS.app.refresh(); },
         lowEnergy() { const d = LOS.store.day(U.today()); d.lowEnergy = !d.lowEnergy; LOS.store.save(); LOS.planner.ensureToday(); ui.toast(d.lowEnergy ? 'Low-energy mode: minimum viable study' : 'Back to the normal plan', 'battery'); LOS.app.refresh(); },
@@ -195,8 +196,8 @@
         <p class="faint small mt-12">${esc(budget.why[0] || '')}</p></div>
       <div class="stack" style="--gap:14px">
         <div class="between"><span class="muted small">${icon('review', 15)}</span><span class="grow small">Reviews due</span><a class="strong num" href="#/practice/review/all">${due}</a></div>
-        <div class="between"><span class="muted small">${icon('flame', 15)}</span><span class="grow small">Continuity</span><span class="strong num">${streak} day${streak === 1 ? '' : 's'}</span></div>
-        <div class="between"><span class="muted small">${icon('award', 15)}</span><span class="grow small">Experience</span><span class="num faint">${L.xp} XP</span></div>
+        <div class="between"><span class="muted small">${icon('calendar', 15)}</span><span class="grow small">Days studied this week</span><span class="strong num">${LOS.analytics.overview(code).days}</span></div>
+        <div class="between"><span class="muted small">${icon('activity', 15)}</span><span class="grow small">Minutes this week</span><span class="num">${U.fmtMin(week.minutes)}</span></div>
       </div>
       ${reviewDue ? `<div class="card soft"><div class="strong">Weekly review</div><p class="muted small mt-4">Look back at your week and let the planner adapt next week's load.</p><a class="btn sm mt-12" href="#/review">Start review</a></div>` : ''}
     </aside>`;
@@ -290,6 +291,9 @@
         think: () => ({ type: 'think', skill: 'think', title: 'Think in ' + p.name, subtitle: arg && arg !== 'mix' ? LOS.shared.THINK_TYPES[arg].label : 'Mixed drills', payload: { count: 5, type: arg && arg !== 'mix' ? arg : undefined } }),
         micro: () => ({ type: 'micro', skill: 'vocabulary', title: 'Micro-practice', subtitle: { controlled: 'Controlled practice', application: 'Application', sentence: 'One sentence', dialogue: 'Mini dialogue' }[arg] || 'Short tasks', payload: { focus: arg || 'mixed', count: 8 } }),
         lesson: () => { const g = arg === 'writing' || arg === 'speaking' || arg === 'scenario'; return { type: 'lesson', skill: 'vocabulary', title: 'Preparation lesson', subtitle: 'The language you need', payload: g ? (arg === 'scenario' ? { kind: 'scenario', moduleId: arg2, idx: 0 } : { kind: arg, promptId: arg2, taskId: arg2 }) : { ids: decodeURIComponent(arg || '').split(',').filter(Boolean) } }; },
+        sim: () => { const m = p.index.modules[arg]; return m && { type: 'sim', skill: 'speaking', title: 'Scenario simulation', subtitle: m.title, level: m.l, payload: { moduleId: arg, idx: +(arg2 || 0) } }; },
+        flex: () => ({ type: 'flex', skill: 'writing', title: 'Language flexibility', subtitle: 'Say it differently', payload: { target: arg || 'different' } }),
+        library: () => ({ type: 'library', skill: 'reading', title: 'Input library', subtitle: ((LOS.library.list(code).find((x) => x.id === arg)) || {}).title || 'Your text', payload: { id: arg } }),
         remedy: () => ({ type: 'remedy', skill: 'grammar', title: 'Error clinic', subtitle: 'Recurring error', payload: arg ? { key: decodeURIComponent(arg), label: decodeURIComponent(arg) } : {} }),
         scenario: () => { const m = p.index.modules[arg]; return m && { type: 'scenario', skill: 'speaking', title: m.id.includes('-med-') ? 'Medical scenario' : 'Professional scenario', subtitle: m.title, level: m.l, payload: { moduleId: arg, idx: +(arg2 || 0) } }; },
       };

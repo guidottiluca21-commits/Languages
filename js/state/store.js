@@ -24,7 +24,7 @@
         langWeights: {}, // per language share of the daily budget
         restDay: null, // optional automatic weekly rest day (0–6)
       },
-      profile: { name: '', native: 'it', field: '', specialty: '', interests: [], difficulty: 'balanced', studyTime: 'evening' },
+      profile: { name: '', native: 'it', field: '', specialty: '', interests: [], difficulty: 'balanced', studyTime: 'evening', domain: '', motivation: '', modes: [] },
       time: { min: 15, target: 40, max: 90 },
       rules: { heavy: [10, 20], normal: [20, 40], free: [45, 90], longShiftHours: 10 },
       schedule: {
@@ -80,6 +80,11 @@
       prod: {}, // production ladder step per kind ('writing' | 'speaking'), 1 = one sentence … 6 = full task
       prodWins: {},
       remedied: {}, // recurring error key → { date, times, persist }
+      target: null, // concrete real-world goal { type, country, date }
+      sims: [], // scenario simulations: { date, key, area, overall, dims, weak }
+      library: [], // personal input library (synced as input_library)
+      exposure: {}, // weekly real-world exposure checklist: weekStart → { listen, read, talk, write }
+      allocHist: [], // weekly snapshots of the skill allocation
     };
   }
 

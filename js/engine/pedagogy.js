@@ -56,7 +56,7 @@
     const p = P(code);
     const out = {};
     const corpus = [];
-    const mods = (p.medical || []).concat(p.professional || []);
+    const mods = (p.medical || []).concat(p.professional || [], p.abroad || []);
     mods.forEach((m) => { (m.scen || []).forEach((s) => s.model && corpus.push(...U.sentences(s.model))); (m.expr || []).forEach((e) => corpus.push(e.p)); });
     p.vocab.forEach((v) => v.ex && corpus.push(v.ex));
     p.grammar.forEach((t) => corpus.push(...t.ex));
@@ -74,7 +74,7 @@
       return id;
     };
     mods.forEach((m) => {
-      const d = (p.medical || []).includes(m) ? 'medical' : 'professional';
+      const d = (p.medical || []).includes(m) ? 'medical' : (p.abroad || []).includes(m) ? 'abroad' : 'professional';
       const ids = [];
       (m.words || []).forEach((x) => { const id = add(x.w, { tr: x.tr || '', def: x.def || '', ex: x.ex || '', pl: x.pl, g: x.g, l: x.l || m.l, k: x.w.includes(' ') ? 'chunk' : 'word', d, mod: m.id }); if (id) ids.push(id); });
       (m.col || []).forEach((x) => { const id = add(x.p, { def: x.n || '', l: m.l, k: 'collocation', d, mod: m.id }); if (id) ids.push(id); });
@@ -104,7 +104,7 @@
     const id = code + ':c-' + U.slug(phrase);
     if (all[id]) return id;
     // build a context chunk on the fly if we can find a sentence that uses it (otherwise it is not teachable)
-    const pool = Object.values(all).map((x) => x.ex).concat(p.vocab.map((x) => x.ex), ...(p.medical || []).concat(p.professional || []).map((m) => (m.scen || []).flatMap((s) => (s.model ? U.sentences(s.model) : []))));
+    const pool = Object.values(all).map((x) => x.ex).concat(p.vocab.map((x) => x.ex), ...(p.medical || []).concat(p.professional || [], p.abroad || []).map((m) => (m.scen || []).flatMap((s) => (s.model ? U.sentences(s.model) : []))));
     const ctx = sentencesWith(pool.filter(Boolean), phrase).filter((s) => U.norm(s) !== n);
     if (!ctx.length) return null;
     all[id] = { id, w: phrase, tr: '', def: '', ex: ctx[0], ctxs: ctx.slice(0, 4), pos: '', l: 'B1', k: 'chunk', d: 'general', col: [], syn: [], ant: [], reg: 'neutral', ipa: '', f: 3, ctx: '', ff: '', gen: true };
@@ -142,6 +142,44 @@
   const OUTCOME_GRADE = { easy: 3, hesitant: 2, hint: 1, wrong: 0, repeated: 0 };
 
   /** Apply an outcome of an exercise practised at item stage `at`. Returns {from, to, outcome}. */
+  /* ------------------------------------------------------------------ *
+   * Mastery dimensions: recognizing a word is not the same as using it.
+   * Each exercise kind feeds one dimension; retention comes from the review schedule.
+   * ------------------------------------------------------------------ */
+  const DIMS = [['rec', 'Recognition'], ['ctx', 'Contextual comprehension'], ['rcl', 'Recall'], ['ctl', 'Controlled production'], ['fre', 'Free production'], ['pro', 'Professional usage'], ['ret', 'Long-term retention']];
+  const DIM_OF = { 'mc-meaning': 'rec', 'mc-reverse': 'rec', audio: 'rec', match: 'rec', choose: 'rec', listen: 'ctx', 'mc-context': 'ctx', 'type-tr': 'rcl', 'type-def': 'rcl', rapid: 'rcl', translate: 'rcl', cloze: 'ctl', build: 'ctl', complete: 'ctl', use: 'fre', free: 'fre', respond: 'fre', spontaneous: 'fre' };
+  const PRIOR = { rec: [0, 0.35, 0.8, 0.85, 0.9, 0.92, 0.95, 0.97], ctx: [0, 0.2, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95], rcl: [0, 0, 0.25, 0.7, 0.8, 0.85, 0.9, 0.95], ctl: [0, 0, 0, 0.3, 0.7, 0.8, 0.88, 0.95], fre: [0, 0, 0, 0, 0.3, 0.55, 0.8, 0.92], pro: [0, 0, 0, 0, 0.2, 0.45, 0.7, 0.85] };
+  function noteDim(st, dim, score) {
+    st.dm = st.dm || {};
+    const c = (st.dm[dim] = st.dm[dim] || [0, 0]);
+    c[0] = U.round(c[0] + score, 2); c[1] += 1;
+    if (c[1] > 12) { c[0] = U.round(c[0] * 12 / c[1], 2); c[1] = 12; } // recent evidence weighs more
+  }
+  /** Mastery of one item per dimension, 0–1 (null for professional usage of a non-professional item). */
+  function mastery(code, id, st) {
+    st = st || L(code).vocab[id];
+    const out = {};
+    const s = vstage(st);
+    const v = itemFor(code, id);
+    const proItem = v && ['medical', 'professional', 'abroad', 'academic'].includes(v.d);
+    DIMS.forEach(([k]) => {
+      if (k === 'ret') { out.ret = st && s > 0 ? U.round((LOS.srs.effective(st) || 0) / 100, 2) : 0; return; }
+      if (k === 'pro' && !proItem) { out.pro = null; return; }
+      const prior = st && st.assumed ? PRIOR[k][5] : PRIOR[k][s];
+      const c = (st && st.dm && st.dm[k]) || [0, 0];
+      out[k] = U.round((c[0] + prior * 2) / (c[1] + 2), 2);
+    });
+    return out;
+  }
+  /** Average of the dimensions over the items the learner has met (assumed items excluded). */
+  function masteryProfile(code) {
+    const lang = L(code);
+    const ids = Object.keys(lang.vocab).filter((id) => !lang.vocab[id].assumed && vstage(lang.vocab[id]) >= 1);
+    const sums = {}, ns = {};
+    ids.forEach((id) => { const m = mastery(code, id); Object.keys(m).forEach((k) => { if (m[k] == null) return; sums[k] = (sums[k] || 0) + m[k]; ns[k] = (ns[k] || 0) + 1; }); });
+    return { n: ids.length, dims: DIMS.map(([k, label]) => ({ k, label, v: ns[k] ? U.round(sums[k] / ns[k], 2) : null })) };
+  }
+
   function recordVocab(code, id, outcome, at, opts = {}) {
     const lang = L(code);
     const st = ensureState(code, id);
@@ -150,6 +188,13 @@
     LOS.srs.grade(st, g, U.today(), opts.recovery ? { maxInterval: 7 } : {});
     lang.reviewLog = (lang.reviewLog || []).concat([{ id: U.uuid(), k: id, r: g, at: Date.now() }]).slice(-2000);
     st.seen = U.today();
+    {
+      const dim = DIM_OF[opts.kind] || (opts.spontaneous ? 'fre' : ['rec', 'rec', 'rcl', 'ctl', 'fre', 'fre', 'fre', 'fre'][at == null ? from : at]);
+      const sc = outcome === 'easy' ? 1 : outcome === 'hesitant' ? 0.8 : outcome === 'hint' ? 0.5 : 0;
+      noteDim(st, dim, sc);
+      const vi = itemFor(code, id);
+      if (vi && ['medical', 'professional', 'abroad', 'academic'].includes(vi.d) && (dim === 'fre' || dim === 'ctl')) noteDim(st, 'pro', sc);
+    }
     if (outcome === 'easy' || outcome === 'hesitant') st.ok = (st.ok || 0) + 1;
     if (outcome === 'hint') st.hints = (st.hints || 0) + 1;
     if (outcome === 'wrong' || outcome === 'repeated') st.fail = (st.fail || 0) + 1;
@@ -446,6 +491,34 @@
     return { task: Object.assign({}, task, { secs: rung.secs, scaledFrom: secs }), scaled: true, step, rung };
   }
   /** After a production: two good results at the current step unlock the next one. */
+  /* Speaking progression ladder: what KIND of speaking, from one sentence to professional discussion. */
+  const SPEAK_LADDER = [null,
+    { label: 'One-sentence answers', think: ['rapid', 'situational'] },
+    { label: '2–3 sentence answers', think: ['describe', 'synonym', 'situational'] },
+    { label: 'Explain something', speak: ['explain'], think: ['explain', 'conceptual'] },
+    { label: 'Narrate an experience', speak: ['describe'], think: ['monologue', 'describe'] },
+    { label: 'Express and justify an opinion', speak: ['debate'], think: ['opinion', 'defend'] },
+    { label: 'React spontaneously', speak: ['spontaneous', 'problem'], think: ['spontaneous'] },
+    { label: 'Handle interruptions, disagreement and uncertainty', speak: ['roleplay', 'problem'], sim: true },
+    { label: 'Professional discussion', speak: ['presentation', 'interview'], sim: true },
+  ];
+  function speakLevel(code) {
+    const lang = L(code);
+    if (lang.speakLevel == null) { const th = LOS.skills.theta(lang, 'speaking'); lang.speakLevel = U.clamp(1 + Math.round((th == null ? 0.5 : th) * 1.3), 1, 6); }
+    return lang.speakLevel;
+  }
+  /** Two good results at a level → next level; two weak results in a row → one level down (trend, not one score). */
+  function recordSpeak(code, score) {
+    const lang = L(code);
+    const lv = speakLevel(code);
+    lang.speakWins = lang.speakWins || {};
+    let moved = 0;
+    if (score >= 0.7) { lang.speakWins[lv] = (lang.speakWins[lv] || 0) + 1; if (lang.speakWins[lv] >= 2 && lv < 8) { lang.speakLevel = lv + 1; moved = 1; } }
+    else if (score < 0.4 && lang.speakLast != null && lang.speakLast < 0.5 && lv > 1) { lang.speakLevel = lv - 1; lang.speakWins[lv] = 0; moved = -1; }
+    lang.speakLast = score;
+    return { level: lang.speakLevel, moved, label: SPEAK_LADDER[lang.speakLevel].label };
+  }
+
   function recordProduction(code, kind, score, scaled) {
     const lang = L(code);
     const step = prodStep(code, kind);
@@ -455,7 +528,12 @@
     if (score >= 0.7) {
       lang.prodWins[k] = (lang.prodWins[k] || 0) + 1;
       if (lang.prodWins[k] >= 2 && step < 6) { lang.prod[kind] = step + 1; moved = 1; }
-    } else if (score < 0.4 && step > 1) { lang.prodWins[k] = 0; if (!scaled) { lang.prod[kind] = step - 1; moved = -1; } }
+    } else if (score < 0.4 && step > 1) {
+      // step down on a trend, not on a single bad day: two weak results in a row
+      lang.prodWins[k] = 0;
+      if (!scaled && (lang.prodLast || {})[kind] != null && lang.prodLast[kind] < 0.5) { lang.prod[kind] = step - 1; moved = -1; }
+    }
+    lang.prodLast = Object.assign({}, lang.prodLast, { [kind]: score });
     return { step: lang.prod[kind], moved };
   }
 
@@ -516,6 +594,9 @@
       controlled: ['choose', 'complete', 'translate', 'match', 'build', 'listen', 'grammar'],
       application: ['complete', 'build', 'register', 'natural', 'dialogue', 'respond', 'correct', 'differently'],
       sentence: ['respond'],
+      commute: ['listen', 'repeat', 'choose', 'match', 'listen', 'repeat'], // no typing: listening, recognition, shadowing
+      break: ['translate', 'complete', 'correct', 'grammar', 'choose'], // 5-minute retrieval
+      retrieval: ['translate', 'complete', 'choose', 'match'],
       dialogue: ['dialogue', 'respond', 'register', 'natural', 'respond3'],
       mixed: ['choose', 'complete', 'translate', 'build', 'match', 'correct', 'natural', 'register', 'dialogue', 'respond', 'listen', 'repeat', 'grammar'],
     };
@@ -607,6 +688,12 @@
       recurringErrors: LOS.learn.errorStats(code, 30).byLabel.slice(0, 5).map((x) => x.label),
       productionStep: { writing: prodStep(code, 'writing'), speaking: prodStep(code, 'speaking') },
       correction: correctionPolicy(code),
+      domain: LOS.goals ? LOS.goals.domainOf() : '',
+      goal: LOS.goals ? LOS.goals.targetOf(code) : null,
+      weaknesses: LOS.goals ? LOS.goals.readiness(code).impact.map((x) => x.label) : [],
+      errorBank: LOS.errorBank ? LOS.errorBank.patterns(code).filter((x) => x.status === 'active').slice(0, 6).map((x) => ({ category: x.catLabel, label: x.label, example: x.examples[0] || null })) : [],
+      recentLessons: (lang.sessions || []).slice(-6).map((x) => ({ type: x.type, title: x.title, score: x.score })),
+      native: (LOS.store.state.profile || {}).native || 'it',
     };
   }
 
@@ -630,7 +717,7 @@
     const p = P(code);
     let prevReady = true;
     const steps = def.steps.map((st, n) => {
-      const mods = (st[code] || []).map((x) => p.index.modules[code + '-med-' + x]).filter(Boolean);
+      const mods = (st[code] || []).map((x) => p.index.modules[code + '-' + (def.prefix || 'med') + '-' + x]).filter(Boolean);
       if (!mods.length) return null;
       const prog = mods.map((m) => moduleProgress(code, m));
       const total = U.sum(prog.map((x) => x.total)), known = U.sum(prog.map((x) => x.known));
@@ -640,10 +727,10 @@
       const ready = pct >= 0.7;
       const state = done ? 'done' : ready ? 'ready' : prevReady || started ? 'learning' : 'locked';
       prevReady = ready || done;
-      return { n: n + 1, key: st.key, title: st.title, mods: prog, total, known, pct, state };
+      return { n: n + 1, key: st.key, title: st.title, level: st.level || null, mods: prog, total, known, pct, state };
     }).filter(Boolean);
     const next = steps.find((x) => x.state === 'learning' || x.state === 'ready');
-    return { key, title: def.title, intro: def.intro, optional: !!def.optional, steps, next, done: steps.filter((x) => x.state === 'done').length };
+    return { key, title: def.title, intro: def.intro, levels: def.levels || null, optional: !!def.optional, steps, next, done: steps.filter((x) => x.state === 'done').length, pct: steps.length ? U.sum(steps.map((x) => x.known)) / Math.max(1, U.sum(steps.map((x) => x.total))) : 0 };
   }
 
   LOS.ped = {
@@ -651,6 +738,6 @@
     vstage, gstage, chunks, chunkItem, itemForPhrase, ensureState, expose, classify, recordVocab, hintLevel,
     vocabExercise, checkVocab, usesItem, detectUse, grammarTypes, updateGrammarStage,
     taskMeta, readiness, taskState, prodStep, scaleTask, recordProduction,
-    learnedIds, microSet, remedyCandidate, markRemedied, phase, correctionPolicy, tutorContext, moduleProgress, pathway,
+    SPEAK_LADDER, speakLevel, recordSpeak, DIMS, mastery, masteryProfile, learnedIds, microSet, remedyCandidate, markRemedied, phase, correctionPolicy, tutorContext, moduleProgress, pathway,
   };
 })();

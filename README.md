@@ -25,6 +25,7 @@ computer, iPhone e iPad. Progettata per costare **0 €**.
 11. [Checklist](#11-checklist)
 12. [Le quattro lingue e come aggiungerne una quinta](#12-le-quattro-lingue-e-come-aggiungerne-una-quinta)
 13. [Motore pedagogico 2.0](#13-motore-pedagogico-20)
+14. [Piattaforma adattiva e tutor AI](#14-piattaforma-adattiva-e-tutor-ai)
 
 ---
 
@@ -547,4 +548,106 @@ precedente e isolamento RLS tra due utenti.
   - Il riconoscimento dell'uso spontaneo cerca le espressioni che hai già imparato, non le loro varianti.
   - I prerequisiti si ricavano automaticamente dai contenuti. Per alcuni compiti di scrittura e speaking
     sono pochi, perché le frasi chiave non compaiono altrove nei contenuti.
+
+## 14. Piattaforma adattiva e tutor AI
+
+Principio: **non devi essere bravo a studiare le lingue: è il sistema che rende facile continuare**.
+Conta la costanza, non l'intensità. Non ci sono arretrati da recuperare né sensi di colpa, e la streak
+non è la motivazione principale.
+
+**Architettura**
+
+- **Motore di apprendimento** (locale, deterministico, sempre disponibile):
+  - curriculum: percorsi e prerequisiti;
+  - padronanza: 7 dimensioni per ogni elemento;
+  - ripasso a intervalli (SM-2);
+  - **coda di apprendimento** (`js/engine/adaptive.js`);
+  - **Error Bank**;
+  - obiettivi e prontezza;
+  - generatore di sessioni (`planner.js`);
+  - statistiche.
+- **Livello AI** (`js/ai.js`): `LOS.AIProvider` con tre provider intercambiabili:
+  - *Solo locale* (predefinito);
+  - *Il mio backend* (proxy tuo: le chiavi restano sul server, mai nell'app);
+  - *Modello locale* (Ollama sul tuo computer: gratuito, privato, senza chiave).
+
+  Compiti: `explain`, `examples`, `simTurn`, `assess`, `transform`, `adaptContent`. Ogni richiesta
+  porta il contesto dello studente: livello, lessico noto, errori ricorrenti, Error Bank, punti deboli,
+  dominio, obiettivo, lezioni recenti.
+- **Senza AI** l'app funziona comunque per intero, con alternative locali:
+  - analisi a regole e feedback strutturato;
+  - riscritture formali/informali basate su regole e sinonimi;
+  - interlocutore del simulatore con domande di follow-up già scritte, in tutte e 4 le lingue;
+  - estrazione locale del lessico utile dai testi.
+
+**Cosa trovi nell'app**
+
+- **Home "Che cosa faccio adesso?"**
+  - Scegli il tempo: 5 / 15 / 30 / 45+ min.
+  - Scegli la modalità, se vuoi: *Tragitto* (ascolto, riconoscimento, shadowing, niente da scrivere), *Pausa*, *Sera*, *Studio intenso*.
+  - Vedi la sessione già pronta (es. "8 ripassi · 4 parole nuove · 1 compito di speaking") e premi **Start**.
+  - Sotto trovi: andamento delle abilità, prontezza per il tuo obiettivo, focus attuale ed esposizione reale della settimana.
+- **Sessioni coerenti**:
+  - **5 min**: 2–3 ripassi, 1–2 elementi nuovi, 1 recupero, 1 frase.
+  - **15 min**: ripasso 2, input nuovo 5, recupero 4, produzione 4.
+  - **30 min**: ripasso 5, materiale nuovo 8, pratica 7, produzione 10.
+  - **45+ min**: anche input (ascolto o lettura), speaking/writing e simulazioni.
+- **Rientro dopo giorni di pausa**: "Welcome back. Nothing to catch up on." La coda viene ricostruita, senza arretrati.
+- **Coda di apprendimento**: decide il sistema, non tu. L'ordine è:
+  1. ripassi scaduti di maggior valore;
+  2. errori ricorrenti e punti deboli della simulazione;
+  3. elementi imparati solo in parte;
+  4. materiale nuovo;
+  5. un compito.
+- **Padronanza a più dimensioni**: riconoscimento, contesto, richiamo, produzione controllata, produzione libera, uso professionale, ritenzione. Riconoscere una parola non significa saperla usare.
+- **Error Bank**: pattern ricorrenti classificati (preposizioni, articoli, ordine delle parole, collocazioni, interferenza dell'italiano, registro, frasi poco naturali…). I refusi isolati non entrano. Gli errori tornano nelle lezioni finché spariscono.
+- **Feedback strutturato** dopo ogni produzione libera:
+  - cosa hai comunicato bene;
+  - al massimo 3 correzioni importanti;
+  - alternative più naturali;
+  - lessico che manca;
+  - 1–2 priorità;
+  - un compito di follow-up.
+
+  Con un provider configurato c'è anche il pulsante "AI feedback".
+- **Simulatore di scenari**: l'interlocutore reagisce e incalza ("Perché?", "E se peggiorasse?", "Sicuro?").
+  - Alla fine c'è un report su 7 dimensioni: vocabolario, grammatica, fluenza, accuratezza, adeguatezza professionale, interazione, naturalezza.
+  - Le due dimensioni più deboli guidano le sessioni successive.
+- **Percorsi**:
+  - medico (16 passi, 4 livelli);
+  - **comunicazione professionale** (4 livelli, per ogni settore);
+  - **Life Abroad**: arrivo, prima settimana, casa, banca, sanità da paziente, trasporti, lavoro, vita sociale; in 4 lingue, con **paese di destinazione** e consigli specifici (registro, lessico, abitudini).
+- **Scala dello speaking a 8 livelli**: da una frase alla discussione professionale. Si sale dopo due buoni risultati e si scende solo con un andamento negativo, non per un singolo voto.
+- **Strumenti di flessibilità**: dillo diversamente, rendilo naturale, formale, informale, versione professionale, alternative da madrelingua.
+- **Libreria personale**: incolli un articolo, una trascrizione o un paper. Vengono selezionati solo il lessico e gli esercizi utili per il tuo livello e i tuoi obiettivi (non una lezione gigantesca), più le parole da cercare.
+- **Obiettivo concreto** (lavorare, studiare all'estero, fellowship, congresso, colloquio…): mostra la prontezza per dimensione e le **aree a impatto più alto**. "Perché lo sto imparando?" compare solo sulle attività collegate all'obiettivo.
+- **Statistiche**:
+  - minuti e giorni della settimana;
+  - ritenzione;
+  - vocabolario attivo;
+  - "conoscere vs usare";
+  - come si sta adattando la ripartizione del tempo;
+  - speaking;
+  - trasferimento nel mondo reale.
+
+  XP e streak non compaiono più come elementi centrali.
+
+**Database**: riesegui `supabase-schema.sql`. Aggiunge la tabella `input_library` con RLS e non cancella
+niente. È stato verificato su PostgreSQL 16 sia con un'installazione da zero sia aggiornando lo schema
+precedente; la RLS tra due utenti è stata controllata nell'installazione da zero. Gli altri dati nuovi
+(obiettivo, simulazioni, esposizione, ripartizione del tempo, livello di speaking) vengono salvati in
+`language_profiles.data`.
+
+### Checklist piattaforma adattiva
+- ✅ Coda di apprendimento · ✅ padronanza a 7 dimensioni · ✅ Error Bank · ✅ sessioni 5/15/30/45+ e modalità
+- ✅ Rientro senza arretrati · ✅ curriculum che segue i punti deboli (ripartizione dinamica e visibile)
+- ✅ `AIProvider` (locale / backend / Ollama) con contesto dello studente e alternative locali
+- ✅ Simulatore di scenari · ✅ Life Abroad (4 lingue) · ✅ percorso professionale · ✅ obiettivi e prontezza
+- ✅ Scala dello speaking a 8 livelli · ✅ strumenti di flessibilità · ✅ libreria personale · ✅ esposizione settimanale
+- ✅ Test: `tests/engine.test.js` (61 controlli), contenuti, roundtrip del mapper, E2E nel browser in 4 lingue, PostgreSQL
+- ⚠️ Limiti:
+  - Senza AI, valutazioni e riscritture sono a regole: utili per l'andamento, non complete.
+  - Il lessico specialistico esiste solo per medicina/sanità. Per gli altri settori c'è la comunicazione
+    professionale generale, più i tuoi testi (libreria) e l'AI se configurata.
+  - Ollama funziona solo su computer, non su telefono, e richiede di autorizzare il sito (`OLLAMA_ORIGINS`).
 

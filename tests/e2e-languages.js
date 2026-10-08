@@ -46,7 +46,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await A.click('button.choice[data-v="medical"]');
   await A.click('button[data-act="next"]'); await A.click('button[data-act="next"]'); await A.click('button[data-act="next"]');
   await A.click('button[data-act="generate"]');
-  await A.waitForSelector('.focus-card');
+  await A.waitForSelector('.today-card');
   await waitSynced(A);
 
   /* 1. four independent CEFR profiles */
@@ -79,7 +79,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   const errDe = await A.evaluate(() => LOS.store.lang('de').errors.map((e) => e.cat));
   ok(errDe.includes('case'), `German error recorded with category "case" (${errDe})`);
   ok(await A.evaluate(() => LOS.store.lang('fr').errors.length === 0 && LOS.store.lang('en').errors.length === 0), 'other languages\' error logs untouched');
-  await A.goto(BASE + '#/errors'); await A.waitForSelector('text=Error Log');
+  await A.goto(BASE + '#/errors'); await A.waitForSelector('h1:has-text("Error Bank")');
   ok((await A.content()).includes('Cases'), 'German error log shows the "Cases" category');
 
   /* 4. German writing checks (Italian speaker) */
@@ -136,17 +136,17 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await A.screenshot({ path: SHOTS + 'l06-compare.png', fullPage: true });
   await A.goto(BASE + '#/think'); await A.waitForSelector('text=Your ladder in French');
   ok(await A.isVisible('.ladder-step.on'), 'think ladder shows the current step for French');
-  await A.goto(BASE + '#/medical'); await A.click('button[data-act="medView"][data-v="all"]'); await A.waitForSelector('text=interrogatoire');
+  await A.goto(BASE + '#/medical'); await A.click('button[data-act="view"][data-v="all"]'); await A.waitForSelector('text=interrogatoire');
   ok((await A.content()).includes('Consultation d') || (await A.content()).includes('consultation d'), 'French medical module (consultation d\'anesthésie…)');
   await A.evaluate(() => LOS.store.setActive('de'));
-  await A.goto(BASE + '#/medical'); await A.click('button[data-act="medView"][data-v="all"]'); await A.waitForSelector('text=Anamnese');
+  await A.goto(BASE + '#/medical'); await A.click('button[data-act="view"][data-v="all"]'); await A.waitForSelector('text=Anamnese');
   ok((await A.content()).includes('Übergabe'), 'German medical modules (Anamnese, Übergabe…)');
 
   /* 9. mobile: compact selector */
   const M = await device(browser, 'M', await A.evaluate(() => localStorage.getItem('__mockdb')), { viewport: { width: 390, height: 844 } });
   await M.goto(BASE + '#/login'); await M.waitForSelector('#email');
   await M.fill('#email', 'poly@example.com'); await M.fill('#pw', 'Poliglotta2026'); await M.click('button[type=submit]');
-  await M.waitForSelector('.focus-card');
+  await M.waitForSelector('.today-card');
   ok(await M.isVisible('.topbar [data-lang-menu]'), 'mobile: language selector visible in the top bar');
   await M.click('.topbar [data-lang-menu]');
   await M.screenshot({ path: SHOTS + 'l07-mobile-menu.png' });
@@ -158,7 +158,7 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   const B = await device(browser, 'B', await A.evaluate(() => localStorage.getItem('__mockdb')));
   await B.goto(BASE + '#/login'); await B.waitForSelector('#email');
   await B.fill('#email', 'poly@example.com'); await B.fill('#pw', 'Poliglotta2026'); await B.click('button[type=submit]');
-  await B.waitForSelector('.focus-card');
+  await B.waitForSelector('.today-card');
   const restored = await B.evaluate(() => ({ codes: LOS.store.studying(), deErr: LOS.store.lang('de').errors.length, frErr: LOS.store.lang('fr').errors.length, deAsm: LOS.store.lang('de').assessments.length, deV: !!LOS.store.lang('de').vocab['de:der-termin'], frV: !!LOS.store.lang('fr').vocab['fr:la-voiture'], enV: Object.keys(LOS.store.lang('en').vocab).some((k) => !k.startsWith('en:')) }));
   ok(restored.codes.length === 4, `device B restores the four languages (${restored.codes})`);
   ok(restored.deErr >= 1 && restored.frErr === 0 && restored.deAsm === 1 && restored.deV && restored.frV && !restored.enV, 'device B: data restored and still separated by language');

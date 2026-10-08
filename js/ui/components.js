@@ -7,7 +7,7 @@
   const icon = LOS.icon;
 
   const SKILL_ICON = { grammar: 'grammar', vocabulary: 'vocabulary', reading: 'reading', listening: 'listening', writing: 'writing', speaking: 'speaking', think: 'think', review: 'review', scenario: 'medical' };
-  const CAT_OF = { review: 'review', listening: 'listening', grammar: 'study', vocabulary: 'study', reading: 'study', writing: 'study', speaking: 'study', think: 'study', scenario: 'study', micro: 'study', lesson: 'study', remedy: 'review' };
+  const CAT_OF = { review: 'review', listening: 'listening', grammar: 'study', vocabulary: 'study', reading: 'study', writing: 'study', speaking: 'study', think: 'study', scenario: 'study', micro: 'study', lesson: 'study', remedy: 'review', sim: 'study', flex: 'study', library: 'study' };
 
   const ui = (LOS.ui = {
     esc, icon, SKILL_ICON, CAT_OF,

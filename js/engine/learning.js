@@ -441,7 +441,11 @@
   function pickSpeaking(code, opts = {}) {
     const p = P(code), lang = L(code);
     const idx = opts.level != null ? opts.level : targetLevelIdx(code, 'speaking');
-    return pickBy(p.speaking, idx, lang.seen.prompts, medicalPriority(code), opts.rnd || Math.random);
+    // the speaking ladder decides the KIND of task (explain, narrate, opinion, spontaneous, interruptions, professional)
+    const rung = LOS.ped && LOS.ped.SPEAK_LADDER[LOS.ped.speakLevel(code)];
+    const typed = rung && rung.speak ? p.speaking.filter((t) => rung.speak.includes(t.type)) : [];
+    const pool = typed.filter((t) => Math.abs(U.levelIndex(t.l) - idx) <= 1).length ? typed : p.speaking;
+    return pickBy(pool, idx, lang.seen.prompts, medicalPriority(code), opts.rnd || Math.random);
   }
   function pickThink(code, n = 4, opts = {}) {
     const p = P(code), lang = L(code);

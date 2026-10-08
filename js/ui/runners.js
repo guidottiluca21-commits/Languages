@@ -176,7 +176,9 @@
     };
   }
 
-  function correctionsHTML(analysis, max = 8) {
+  // routed through LOS.run.helpers so that layers on top (structured feedback) apply everywhere
+  function correctionsHTML(analysis, max) { return LOS.run.helpers.correctionsHTML(analysis, max); }
+  function baseCorrectionsHTML(analysis, max = 8) {
     // do not over-correct: beginners see only the most important errors; style and naturalness come from B1/B2 up
     const pol = analysis.code && LOS.ped ? LOS.ped.correctionPolicy(analysis.code) : { maxErrors: 99, hints: true };
     max = Math.min(max, pol.maxErrors);
@@ -206,7 +208,7 @@
       if (seen.has(key)) return;
       seen.add(key);
       const sent = analysis.sentencesOut.find((x) => x.original === i.sentence);
-      LOS.learn.recordError(code, { src, cat: i.cat, label: i.label, topic: i.topic, wrong: i.sentence, right: sent ? sent.corrected : i.suggestion || '', natural: sent && sent.natural !== sent.corrected ? sent.natural : undefined, note: i.why });
+      LOS.learn.recordError(code, { src, cat: i.cat, label: i.label, topic: i.topic, rule: i.rule, pat: i.match, sugg: i.suggestion || undefined, wrong: i.sentence, right: sent ? sent.corrected : i.suggestion || '', natural: sent && sent.natural !== sent.corrected ? sent.natural : undefined, note: i.why });
     });
     return seen.size;
   }
@@ -1039,7 +1041,7 @@
    * ====================================================================== */
   LOS.run = {
     runners: R,
-    helpers: { exerciseHTML, feedbackHTML, nextBtn, correctionsHTML, logAnalysisErrors, speakingCore, micController, lessonHTML, blank, createSession },
+    helpers: { exerciseHTML, feedbackHTML, nextBtn, correctionsHTML: baseCorrectionsHTML, logAnalysisErrors, speakingCore, micController, lessonHTML, blank, createSession },
     start(root, opts) {
       const s = createSession(root, opts);
       const r = R[opts.item.type];

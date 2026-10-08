@@ -26,6 +26,7 @@
     { name: 'assessments', key: ['client_id'], conflict: 'user_id,client_id' },
     { name: 'weekly_reviews', key: ['client_id'], conflict: 'user_id,client_id' },
     { name: 'learning_tasks', key: ['language_code', 'task_key'], conflict: 'user_id,language_code,task_key' },
+    { name: 'input_library', key: ['client_id'], conflict: 'user_id,client_id' },
   ];
   const BY_NAME = Object.fromEntries(TABLES.map((t) => [t.name, t]));
   const keyOf = (table, row) => BY_NAME[table].key.map((k) => String(row[k])).join('|');
@@ -101,7 +102,7 @@
         listening_level: num(th.listening, 0, 6), writing_level: num(th.writing, 0, 6), speaking_level: num(th.speaking, 0, 6),
         fluency_level: lastA && lastA.sub && lastA.sub.fluency != null ? num(lastA.sub.fluency * 6, 0, 6) : null,
         onboarded: !!L.onboarded, assessed: !!L.assessed, enabled: L.enabled !== false, goals: (L.goals || []).map(String), target_date: date(L.targetDate),
-        data: omit(L, ['code', 'enabled', 'onboarded', 'assessed', 'targetLevel', 'targetDate', 'goals', 'assessments', 'grammar', 'vocab', 'custom', 'errors', 'errorCards', 'sessions', 'listening', 'writings', 'speakings', 'plans', 'reviews', 'reviewLog', 'assessDraft', 'tasks']),
+        data: omit(L, ['code', 'enabled', 'onboarded', 'assessed', 'targetLevel', 'targetDate', 'goals', 'assessments', 'grammar', 'vocab', 'custom', 'errors', 'errorCards', 'sessions', 'listening', 'writings', 'speakings', 'plans', 'reviews', 'reviewLog', 'assessDraft', 'tasks', 'library']),
       });
 
       // vocabulary: items being learned + the user's own items
@@ -158,6 +159,11 @@
         notes: txt(x.notes, 5000), listened_on: date(x.date),
         topic: txt(x.topic, 80) || null, accent: txt(x.accent, 60) || null, speed: SPEEDS.includes(x.speed) ? x.speed : null, has_transcript: typeof x.transcript === 'boolean' ? x.transcript : null,
         data: omit(x, ['id', 'title', 'url', 'source', 'level', 'minutes', 'completed', 'comprehension', 'difficulty', 'notes', 'date', 'topic', 'accent', 'speed', 'transcript']),
+      }));
+
+      (L.library || []).forEach((x, i) => push('input_library', {
+        client_id: cid(x, 'lib'), language_code: code, title: txt(x.title, 160), kind: txt(x.kind, 30), url: x.url ? url(x.url) : null, content: txt(x.text, 10000), added_on: date(x.date),
+        data: Object.assign({ ord: i }, omit(x, ['id', 'title', 'kind', 'url', 'text', 'date'])),
       }));
 
       (L.writings || []).forEach((w) => push('productions', {
@@ -266,6 +272,13 @@
       if (!known(r.language_code)) return;
       L(r.language_code).listening.push(Object.assign({}, r.data || {}, { id: r.client_id, date: r.listened_on, title: r.title || '', url: r.url || '', minutes: r.duration || 0, level: r.cefr_level || 'B1', comprehension: r.comprehension == null ? 0 : r.comprehension, difficulty: r.difficulty || 3, notes: r.notes || '' }, r.completed === false ? { completed: false } : {}, r.source && r.source !== 'external' ? { source: r.source } : {},
         r.topic ? { topic: r.topic } : {}, r.accent ? { accent: r.accent } : {}, r.speed ? { speed: r.speed } : {}, r.has_transcript != null ? { transcript: r.has_transcript } : {}));
+    });
+    (rows.input_library || []).slice().sort((a, b) => ((a.data || {}).ord || 0) - ((b.data || {}).ord || 0)).forEach((r) => {
+      if (!known(r.language_code)) return;
+      const lg = L(r.language_code);
+      lg.library = lg.library || [];
+      const d = omit(r.data || {}, ['ord']);
+      lg.library.push(Object.assign(d, { id: r.client_id, title: r.title || '', kind: r.kind || 'text', url: r.url || '', text: r.content || '', date: r.added_on }));
     });
     (rows.productions || []).slice().sort((a, b) => String(b.produced_on).localeCompare(String(a.produced_on)) || String(b.created_at).localeCompare(String(a.created_at))).forEach((r) => {
       if (!known(r.language_code)) return;

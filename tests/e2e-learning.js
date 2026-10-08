@@ -37,8 +37,10 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
       const b = page.locator('.runner-body');
       const tryClick = async (sel) => { const el = await page.$('.runner-body ' + sel); if (el && await el.isVisible() && await el.isEnabled()) { await el.click(); return true; } return false; };
       if (i === 2) await page.screenshot({ path: SHOTS + 'run-' + label + '.png' });
+      if (await page.$('.runner-body .dims') && !(drive.shot || {})[label]) { drive.shot = Object.assign(drive.shot || {}, { [label]: 1 }); await page.screenshot({ path: SHOTS + 'report-' + label + '.png', fullPage: true }); }
       const inp = await page.$('.runner-body #ans:not([readonly])');
-      if (inp) { await inp.fill('test answer'); if (await tryClick('[data-act="submit"]') || await tryClick('[data-act="vsubmit"]') || await tryClick('[data-act="esubmit"]')) continue; }
+      if (inp) { await inp.fill('test answer'); if (await tryClick('[data-act="submit"]') || await tryClick('[data-act="vsubmit"]') || await tryClick('[data-act="esubmit"]') || await tryClick('[data-act="send"]')) continue; }
+      for (const id of ['#flx', '#mine']) { const t = await page.$('.runner-body ' + id); if (t && !(await t.inputValue())) { await t.fill('I would like to discuss about the new plan with you.'); if (id === '#flx' && await tryClick('[data-act="run"]')) break; if (id === '#mine' && await tryClick('[data-act="check"]')) break; } }
       for (const id of ['#prod', '#sum', '#sct', '#ta', '#tr']) { const t = await page.$('.runner-body ' + id); if (t && !(await t.inputValue())) await t.fill('I have been working here since two years and I am agree with the plan. However, the patients is fine.'); }
       const wt = await page.$('.runner-body #wt');
       if (wt && !(await wt.inputValue())) { await wt.fill('I write you because I want discuss about the new rota. The life in hospital is hard. People is tired. However, we should take into account the wellbeing of staff, whereas costs are significant. In my opinion I think we need more informations.'); await tryClick('[data-act="check"]'); await page.screenshot({ path: SHOTS + 'run-writing-feedback.png', fullPage: true }); await tryClick('[data-act="finish"]'); continue; }
@@ -46,7 +48,7 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
       const mw = await page.$$('.runner-body [data-act="mw"]:not([disabled])');
       if (mw.length) { await mw[0].click(); const mt = await page.$$('.runner-body [data-act="mt"]:not([disabled])'); if (mt.length) await mt[i % mt.length].click(); continue; }
       if (await tryClick('[data-act="tok"]:not([disabled])')) continue;
-      const order = ['[data-act="got"]', '[data-act="learnFirst"]', '[data-act="learn"]', '[data-act="shortTask"]', '[data-act="rep"][data-v="1"]', '[data-act="submit"]:not([disabled])', '[data-act="start"]','[data-act="go"]','[data-act="toQ"]','[data-act="opt"]','[data-act="vopt"]','[data-act="grade"][data-g="2"]','[data-act="next"]','[data-act="nextMeet"]','[data-act="toSum"]','[data-act="play"]','[data-act="finishDrill"][data-enter]','[data-act="done"]','[data-act="skipToType"]','[data-act="save"]','[data-act="analyse"]','[data-act="self"][data-v="2"]','[data-act="toQuiz"]','[data-act="saveW"]','[data-act="checkW"]','[data-act="finish"]','[data-act="fin"]','[data-act="finishEmpty"]'];
+      const order = ['[data-act="got"]', '[data-act="tryAnyway"]', '[data-act="learnFirst"]', '[data-act="learn"]', '[data-act="shortTask"]', '[data-act="rep"][data-v="1"]', '[data-act="submit"]:not([disabled])', '[data-act="start"]','[data-act="go"]','[data-act="toQ"]','[data-act="opt"]','[data-act="vopt"]','[data-act="grade"][data-g="2"]','[data-act="next"]','[data-act="nextMeet"]','[data-act="toSum"]','[data-act="play"]','[data-act="finishDrill"][data-enter]','[data-act="done"]','[data-act="skipToType"]','[data-act="save"]','[data-act="analyse"]','[data-act="self"][data-v="2"]','[data-act="toQuiz"]','[data-act="saveW"]','[data-act="checkW"]','[data-act="finish"]','[data-act="fin"]','[data-act="run"]','[data-act="finishEmpty"]'];
       let clicked = false;
       for (const s of order) { if (await tryClick(s)) { clicked = true; break; } }
       if (!clicked) { await page.screenshot({ path: SHOTS + 'stuck-' + label + '.png', fullPage: true }); return 'stuck'; }
@@ -55,9 +57,11 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
   }
   const R = ROUTES[L];
   const BASICS = L + '-med-' + { en: 'basics', es: 'basicos', de: 'grundlagen', fr: 'bases' }[L];
+  const ABR = L + '-abr-' + { en: 'arrival', es: 'llegada', de: 'ankunft', fr: 'arrivee' }[L];
   const LOS_W = R[3].split('/').pop();
   const routes = [R[0], 'practice/vocab/new', 'practice/review/all', R[1], R[2], 'practice/listening/external', R[3], R[4], 'practice/think/mix', R[5], R[6],
     'practice/lesson/scenario/' + BASICS, 'practice/scenario/' + BASICS + '/0', 'practice/lesson/writing/' + LOS_W,
+    'practice/sim/' + ABR + '/0', 'practice/sim/' + BASICS + '/0', 'practice/flex', 'practice/flex/formal',
     'practice/micro/controlled', 'practice/micro/application', 'practice/micro/dialogue', 'practice/micro/sentence', 'practice/remedy', 'practice/vocab/new', 'practice/review/all'];
   for (const r of routes) { await page.goto(URL + '#/' + r); await page.waitForTimeout(200); console.log(r, await drive(r.replace(/\//g, '_'))); }
   // today session from plan
@@ -69,17 +73,36 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
     await t.click(); console.log('plan item', ty, await drive('plan-' + k));
   }
   console.log('plan state:', await page.evaluate(() => { const c = LOS.store.active(); const p = LOS.store.lang(c).plans[LOS.util.today()]; return JSON.stringify({ items: p.items.map((i) => i.type + ':' + i.status), challenge: p.challenge && p.challenge.type, completed: !!p.completedAt }); }));
+  // home: "How much time do you have today?"
+  await page.goto(URL + '#/dashboard'); await page.waitForTimeout(250);
+  await page.click('button[data-act="time"][data-v="15"]'); await page.waitForTimeout(250);
+  console.log('home 15 min:', await page.evaluate(() => { const p = LOS.store.lang(LOS.store.active()).plans[LOS.util.today()]; return JSON.stringify({ chosen: p.chosen, items: p.items.map((i) => i.type + ':' + i.status) }); }));
+  await page.screenshot({ path: SHOTS + 'after-home.png', fullPage: true });
+  await page.click('button[data-act="mode"][data-v="commute"]'); await page.waitForTimeout(250);
+  console.log('home commute:', await page.evaluate(() => { const p = LOS.store.lang(LOS.store.active()).plans[LOS.util.today()]; return JSON.stringify({ chosen: p.chosen, items: p.items.filter((i) => i.status === 'pending').map((i) => i.type) }); }));
+  await page.click('button[data-act="exposure"][data-v="read"]'); await page.waitForTimeout(150);
+  // input library: add a text, prepare it, practise it
+  await page.goto(URL + '#/library'); await page.waitForTimeout(200);
+  const sample = await page.evaluate(() => LOS.lang.get(LOS.store.active()).vocab.filter((v) => v.l === 'B1' || v.l === 'B2').slice(0, 10).map((v) => v.ex).join(' '));
+  await page.fill('#lib-t', 'My article'); await page.fill('#lib-x', sample); await page.click('#libf button[type="submit"]'); await page.waitForTimeout(500);
+  await page.screenshot({ path: SHOTS + 'after-library.png', fullPage: true });
+  const libId = await page.evaluate(() => (LOS.library.list(LOS.store.active())[0] || {}).id);
+  await page.goto(URL + '#/practice/library/' + libId); await page.waitForTimeout(200); console.log('practice/library', await drive('library'));
+  await page.goto(URL + '#/abroad'); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'after-abroad.png', fullPage: true });
+  console.log('abroad steps shown:', await page.evaluate(() => document.querySelectorAll('.path-step').length));
+  await page.goto(URL + '#/professional'); await page.waitForTimeout(200);
+  console.log('professional steps shown:', await page.evaluate(() => document.querySelectorAll('.path-step').length));
   // pathway view + engine state checks
   await page.goto(URL + '#/medical'); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'after-medical-pathway.png', fullPage: true });
   const pathOk = await page.evaluate(() => document.querySelectorAll('.path-step').length);
   console.log('pathway steps shown:', pathOk);
   console.log('engine:', await page.evaluate((b) => { const c = LOS.store.active(); const L = LOS.store.lang(c); const st = Object.values(L.vocab).map((v) => LOS.ped.vstage(v)); const pw = LOS.ped.pathway(c, 'medical'); return JSON.stringify({ stages: [0,1,2,3,4,5,6,7].map((k) => st.filter((x) => x === k).length), tasks: Object.keys(L.tasks || {}).length, basics: pw.steps[0].known + '/' + pw.steps[0].total + ' ' + pw.steps[0].state, prod: L.prod }); }, BASICS));
-  for (const r of ['dashboard', 'errors', 'vocabulary', 'progress', 'review']) { await page.goto(URL + '#/' + r); await page.waitForTimeout(200); await page.screenshot({ path: SHOTS + 'after-' + r + '.png', fullPage: true }); }
+  for (const r of ['dashboard', 'errors', 'vocabulary', 'progress', 'review', 'settings']) { await page.goto(URL + '#/' + r); await page.waitForTimeout(200); await page.screenshot({ path: SHOTS + 'after-' + r + '.png', fullPage: true }); }
   // weekly review submit
   await page.goto(URL + '#/review'); await page.click('#wr button[type="submit"]'); await page.waitForTimeout(300); await page.screenshot({ path: SHOTS + 'after-review-next.png', fullPage: true });
   // mobile
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const r of ['dashboard', 'calendar', 'practice/writing/free']) { await page.goto(URL + '#/' + r); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'm-' + r.replace(/\//g,'_') + '.png', fullPage: false }); }
+  for (const r of ['dashboard', 'calendar', 'practice/writing/free', 'abroad', 'library', 'progress']) { await page.goto(URL + '#/' + r); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'm-' + r.replace(/\//g,'_') + '.png', fullPage: false }); if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) console.log('MOBILE OVERFLOW on', r); }
   // dark
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.evaluate(() => LOS.app.setTheme('dark')); await page.goto(URL + '#/dashboard'); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'dark-dashboard.png' });

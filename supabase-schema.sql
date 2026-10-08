@@ -353,6 +353,24 @@ create table if not exists public.learning_tasks (
   unique (user_id, language_code, task_key)
 );
 
+-- 2.15 Personal input library: texts the learner adds (articles, transcripts, papers, notes)
+--      and the useful language extracted from them (data.out)
+create table if not exists public.input_library (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  client_id      text not null check (char_length(client_id) <= 64),
+  language_code  text not null references public.languages(code),
+  title          text check (char_length(title) <= 160),
+  kind           text check (char_length(kind) <= 30),
+  url            text check (url is null or url = '' or (url ~* '^https?://' and char_length(url) <= 2000)),
+  content        text check (char_length(content) <= 10000),
+  added_on       date,
+  data           jsonb not null default '{}'::jsonb check (pg_column_size(data) < 65536),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  unique (user_id, client_id)
+);
+
 -- ---------------------------------------------------------------------------
 -- 2.99 Migration from the first version of this script (safe to re-run)
 --      · the language column is now called language_code in every learning table
@@ -405,6 +423,7 @@ create index if not exists plans_user_lang_date_idx     on public.daily_plans (u
 create index if not exists assessments_user_lang_idx    on public.assessments (user_id, language_code);
 create index if not exists reviews_user_lang_idx        on public.weekly_reviews (user_id, language_code);
 create index if not exists tasks_user_lang_idx          on public.learning_tasks (user_id, language_code);
+create index if not exists library_user_lang_idx        on public.input_library (user_id, language_code);
 create index if not exists vocabulary_user_lang_stage_idx on public.vocabulary (user_id, language_code, learning_stage);
 
 -- ---------------------------------------------------------------------------
@@ -414,7 +433,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['profiles','user_settings','language_profiles','vocabulary','grammar_progress',
-                           'errors','listening_content','work_schedule','daily_plans','learning_tasks']
+                           'errors','listening_content','work_schedule','daily_plans','learning_tasks','input_library']
   loop
     execute format('drop trigger if exists %I on public.%I', t || '_updated_at', t);
     execute format('create trigger %I before update on public.%I for each row execute function public.set_updated_at()',
@@ -477,7 +496,7 @@ declare t text;
 begin
   foreach t in array array['profiles','user_settings','language_profiles','vocabulary','vocabulary_reviews',
                            'grammar_progress','study_sessions','errors','listening_content','work_schedule',
-                           'productions','daily_plans','assessments','weekly_reviews','learning_tasks']
+                           'productions','daily_plans','assessments','weekly_reviews','learning_tasks','input_library']
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from anon', t);

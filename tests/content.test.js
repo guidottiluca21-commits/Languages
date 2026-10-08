@@ -84,9 +84,14 @@ for (const code of codes) {
   ok(p.professional.length >= 8 && p.professional.every((m) => pro.has(m.cat) && m.expr.length && (m.scen || []).length), `${tag} professional modules (≥8) valid`);
   /* Engine 2.0: core medical modules carry taught words; every pathway module exists */
   ['basics', 'medications', 'investigations', 'treatment'].forEach((k) => { const st = LOS.PATHWAYS.medical.steps.find((x) => x.key === k); const m = p.index.modules[code + '-med-' + st[code][0]]; ok(m && (m.words || []).length >= 6 && m.words.every((w) => w.w && w.tr && w.def && w.ex), `${tag} pathway step ${k} has a module with ≥6 complete words`); });
-  Object.entries(LOS.PATHWAYS).forEach(([pk, def]) => def.steps.forEach((st) => (st[code] || []).forEach((x) => ok(p.index.modules[code + '-med-' + x], `${tag} pathway ${pk}/${st.key}: module ${code}-med-${x} exists`))));
+  Object.entries(LOS.PATHWAYS).forEach(([pk, def]) => def.steps.forEach((st) => (st[code] || []).forEach((x) => ok(p.index.modules[code + '-' + (def.prefix || 'med') + '-' + x], `${tag} pathway ${pk}/${st.key}: module ${code}-${def.prefix || 'med'}-${x} exists`))));
   ok(LOS.PATHWAYS.medical.steps.length === 16 && LOS.PATHWAYS.medical.steps.every((st) => (st[code] || []).length >= 1), `${tag} medical pathway has 16 steps, each with a module`);
-  const mids = p.medical.concat(p.professional).map((m) => m.id);
+  /* Life abroad track + simulator lines */
+  const abr = new Set(LOS.shared.ABROAD_CATS.map(([k]) => k));
+  ok(p.abroad.length >= 8 && p.abroad.every((m) => abr.has(m.cat) && m.expr.length >= 4 && (m.scen || []).length && m.scen.every((sc) => sc.model) && (m.words || []).length >= 6 && m.words.every((w) => w.w && w.tr && w.def && w.ex)), `${tag} life-abroad modules (≥8) complete`);
+  ok(['clinical', 'patient', 'workplace', 'abroad', 'social'].every((g) => { const x = LOS.SIM_LINES[code][g]; return x && x.role && x.open.length && x.follow.length >= 3 && x.close; }), `${tag} simulator partner lines for every situation type`);
+  ok((LOS.COUNTRIES[code] || []).length >= 3 && LOS.COUNTRIES[code].every((c) => c.id && c.label && c.tips.length), `${tag} target countries with register/culture tips`);
+  const mids = p.medical.concat(p.professional, p.abroad).map((m) => m.id);
   ok(new Set(mids).size === mids.length, `${tag} module ids unique`);
 
   /* pronunciation (German and French have full guides) */
@@ -96,8 +101,10 @@ for (const code of codes) {
   const correct = [];
   p.grammar.forEach((t) => { correct.push(...t.ex); t.x.forEach((x) => { if (x.t === 'fix' || x.t === 'tr') correct.push(x.a[0]); }); });
   p.vocab.forEach((v) => correct.push(v.ex));
-  p.medical.forEach((m) => (m.words || []).forEach((w) => correct.push(w.ex)));
-  p.medical.concat(p.professional).forEach((m) => (m.scen || []).forEach((s) => s.model && correct.push(...U.sentences(s.model))));
+  p.medical.concat(p.abroad).forEach((m) => (m.words || []).forEach((w) => correct.push(w.ex)));
+  Object.values(LOS.SIM_LINES[code]).forEach((g) => correct.push(...g.open, ...g.follow, g.close));
+  p.medical.concat(p.professional, p.abroad).forEach((m) => (m.scen || []).forEach((s) => s.model && correct.push(...U.sentences(s.model))));
+  p.abroad.forEach((m) => m.expr.forEach((e) => correct.push(e.p)));
   let fp = 0;
   correct.forEach((sent) => {
     if (!sent) return;

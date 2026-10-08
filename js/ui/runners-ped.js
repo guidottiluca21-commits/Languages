@@ -113,7 +113,7 @@
       r.ms = Date.now() - t0; r.expectedMs = ex.expectedMs;
       if (ex.id && ex.v) {
         outcome = ped.classify(r, st());
-        change = ped.recordVocab(s.code, ex.id, outcome, ex.stage != null ? ex.stage : ped.vstage(st()), { given, sameDayOk: !!cb.sameDayOk });
+        change = ped.recordVocab(s.code, ex.id, outcome, ex.stage != null ? ex.stage : ped.vstage(st()), { given, sameDayOk: !!cb.sameDayOk, kind: ex.micro || ex.kind });
       } else outcome = r.correct ? (r.hint ? 'hint' : 'easy') : 'wrong';
       if (cb.onResult) cb.onResult(ex, r, outcome);
       cb.redraw();
@@ -184,7 +184,7 @@
     else {
       items.forEach((v) => steps.push({ id: v.id, stage: 0 }));       // 1–3 see, hear, understand
       items.forEach((v) => steps.push({ id: v.id, stage: 1 }));       // 4 recognize
-      items.forEach((v) => steps.push({ id: v.id, stage: 2, ifEasy: 1 })); // 5 recall — only after an easy recognition
+      if (!s.item.payload.handsFree) items.forEach((v) => steps.push({ id: v.id, stage: 2, ifEasy: 1 })); // 5 recall — only after an easy recognition (not in hands-free commute mode)
     }
     const known = new Set();
     const firstOutcome = {};
@@ -231,14 +231,11 @@
    * ==================================================================== */
   R.review = function (s) {
     const cap = s.item.payload.cap || 20;
-    const errIds = LOS.learn.dueErrorCards(s.code).slice(0, Math.max(2, Math.round(cap * 0.25)));
-    const gIds = LOS.learn.grammarList(s.code).filter((g) => g.due && ped.gstage(g.state) >= 1).sort((a, b) => LOS.srs.priority(b.state) - LOS.srs.priority(a.state)).slice(0, cap >= 12 ? 3 : 1).map((g) => g.topic.id);
-    let vIds = LOS.learn.dueVocab(s.code).slice(0, Math.max(3, cap - errIds.length - gIds.length * 3));
-    let extraMode = false;
-    if (!vIds.length && !gIds.length && !errIds.length) {
-      vIds = Object.keys(s.lang.vocab).filter((id) => ped.vstage(s.lang.vocab[id]) >= 1 && LOS.learn.vocabItem(s.code, id)).sort((a, b) => (s.lang.vocab[a].mastery || 0) - (s.lang.vocab[b].mastery || 0)).slice(0, Math.min(8, cap));
-      extraMode = vIds.length > 0;
-    }
+    // the central learning queue decides: highest-value due items first, then reinforcement of weak items
+    const handsFree = !!s.item.payload.handsFree;
+    const rs = LOS.queue.reviewSet(s.code, cap, { handsFree });
+    const errIds = rs.errors, gIds = rs.grammar, vIds = rs.vocab;
+    const extraMode = rs.extra;
     const queue = [];
     const v = vIds.map((id) => ({ kind: 'vocab', id })), g = gIds.map((id) => ({ kind: 'grammar', id })), e = errIds.map((id) => ({ kind: 'error', id }));
     while (v.length || g.length || e.length) { queue.push(...v.splice(0, 3)); if (g.length) queue.push(g.shift()); if (e.length) queue.push(e.shift()); }
@@ -260,7 +257,7 @@
     function cur() { return queue[i]; }
     function load() {
       const q = cur(); if (!q) return;
-      if (q.kind === 'vocab') player.show(ped.vocabExercise(s.code, q.id));
+      if (q.kind === 'vocab') player.show(handsFree ? ped.vocabExercise(s.code, q.id, { stage: 1, kind: LOS.speech.ttsSupported ? 'audio' : 'mc-meaning' }) || ped.vocabExercise(s.code, q.id) : ped.vocabExercise(s.code, q.id));
       if (q.kind === 'error') {
         const er = s.lang.errors.find((x) => x.id === q.id);
         player.show({ kind: 'fix', micro: 'error', ex: { t: 'fix', q: er.wrong || '…', a: [er.right], w: er.note || '', d: 1 }, errorId: q.id, why: er.note });
@@ -442,8 +439,9 @@
           const last = kind === 'writing' ? s.lang.writings[0] : s.lang.speakings[0];
           const used = last ? ped.detectUse(s.code, last.text || last.transcript || '') : [];
           const lad = ped.recordProduction(s.code, kind, r.score == null ? 0.6 : r.score, sc.scaled);
+          const spl = kind === 'speaking' ? ped.recordSpeak(s.code, r.score == null ? 0.6 : r.score) : null;
           t.attempts = (t.attempts || 0) + 1; t.lastAt = U.today(); t.best = Math.max(t.best || 0, r.score || 0); t.step = 3;
-          r.summary = (r.summary || []).concat([used.length ? `Used spontaneously: ${used.slice(0, 6).join(', ')}` : '', lad.moved > 0 ? `Production ladder: step ${lad.step} of 6 unlocked (${ped.LADDER[kind][lad.step].label})` : `Production ladder: step ${lad.step} of 6 (${ped.LADDER[kind][lad.step].label})`].filter(Boolean));
+          r.summary = (r.summary || []).concat([used.length ? `Used spontaneously: ${used.slice(0, 6).join(', ')}` : '', spl ? `Speaking ladder: level ${spl.level} of 8 — ${spl.label}${spl.moved > 0 ? ' (new level)' : ''}` : '', lad.moved > 0 ? `Production ladder: step ${lad.step} of 6 unlocked (${ped.LADDER[kind][lad.step].label})` : `Production ladder: step ${lad.step} of 6 (${ped.LADDER[kind][lad.step].label})`].filter(Boolean));
           fin(r);
         };
         original(s);
@@ -460,6 +458,7 @@
       s.on({ shortTask() { run(); }, fullTask() { sc.scaled = false; delete s.item.payload.task; run(); } });
     };
   }
+  LOS.run.gate = { gateMeta, notReadyScreen, readinessHTML, finishPrep };
   R.writing = wrapProduction('writing', R.writing);
   R.speaking = wrapProduction('speaking', R.speaking);
 
