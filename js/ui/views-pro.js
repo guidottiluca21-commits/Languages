@@ -27,7 +27,7 @@
         const locked = st.state === 'locked';
         return `<div class="row path-step ${st.state}"><span class="num faint" style="width:26px">${st.n}</span>
           <div class="grow"><div class="cluster"><strong>${esc(st.title)}</strong><span class="pill ${cls}">${locked ? icon('lock', 12) + ' ' : ''}${label}</span><span class="pill outline">${esc(m.l)}</span></div>
-            <div class="faint xs mt-4">Required language: ${st.known}/${st.total} items learned${st.mods.length > 1 ? ` · ${st.mods.length} modules` : ''}${locked ? ' · unlocks when the previous step\'s language is 70% learned' : ''}</div>
+            <div class="faint xs mt-4">${esc(st.mods.map((x) => x.title).join(' · '))}</div><div class="faint xs mt-4">Required language: ${st.known}/${st.total} items learned${st.mods.length > 1 ? ` · ${st.mods.length} modules` : ''}${locked ? ' · unlocks when the previous step\'s language is 70% learned' : ''}</div>
             <div class="mt-8" style="max-width:320px">${ui.bar(Math.round(st.pct * 100))}</div></div>
           <div class="cluster">${st.mods.map((x) => `<a class="btn sm ghost" href="#/medical/${x.id}">${st.mods.length > 1 ? esc(x.title) : 'Open'}</a>`).join('')}
             ${locked ? '' : st.pct < 0.7 ? `<a class="btn sm primary" href="#/practice/lesson/scenario/${m.id}">Learn the language</a>` : `<a class="btn sm primary" href="#/practice/scenario/${m.id}/0">Scenario</a>`}</div></div>`;

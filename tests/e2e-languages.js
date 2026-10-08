@@ -136,10 +136,10 @@ const waitSynced = (page) => page.waitForFunction(() => LOS.sync.info.status ===
   await A.screenshot({ path: SHOTS + 'l06-compare.png', fullPage: true });
   await A.goto(BASE + '#/think'); await A.waitForSelector('text=Your ladder in French');
   ok(await A.isVisible('.ladder-step.on'), 'think ladder shows the current step for French');
-  await A.goto(BASE + '#/medical'); await A.waitForSelector('text=interrogatoire');
+  await A.goto(BASE + '#/medical'); await A.click('button[data-act="medView"][data-v="all"]'); await A.waitForSelector('text=interrogatoire');
   ok((await A.content()).includes('Consultation d') || (await A.content()).includes('consultation d'), 'French medical module (consultation d\'anesthésie…)');
   await A.evaluate(() => LOS.store.setActive('de'));
-  await A.goto(BASE + '#/medical'); await A.waitForSelector('text=Anamnese');
+  await A.goto(BASE + '#/medical'); await A.click('button[data-act="medView"][data-v="all"]'); await A.waitForSelector('text=Anamnese');
   ok((await A.content()).includes('Übergabe'), 'German medical modules (Anamnese, Übergabe…)');
 
   /* 9. mobile: compact selector */
