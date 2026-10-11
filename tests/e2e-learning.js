@@ -100,8 +100,13 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
   // extensive reading with mining, report, calendar export, progress check-up
   const tid = await page.evaluate(() => LOS.lang.get(LOS.store.active()).texts[0].id);
   await page.goto(URL + '#/read/text/' + tid); await page.waitForTimeout(250);
-  await page.click('.transcript .w >> nth=5'); await page.waitForTimeout(200);
-  const mineModal = await page.$('[data-add]'); if (mineModal) { const mi = await page.$('#mine-m'); if (mi) await mi.fill('test meaning'); await page.click('[data-add]'); }
+  // tap words until one is not yet in the learner's study (already-known words correctly show a disabled button)
+  for (let w = 5; w < 40; w++) {
+    await page.click(`.transcript .w >> nth=${w}`); await page.waitForTimeout(150);
+    const add = await page.$('[data-add]:not([disabled])');
+    if (add) { const mi = await page.$('#mine-m'); if (mi) await mi.fill('test meaning'); await add.click(); break; }
+    const close = await page.$('[data-close]'); if (close) await close.click(); await page.waitForTimeout(100);
+  }
   await page.waitForTimeout(150); await page.click('[data-act="logRead"]'); await page.waitForTimeout(200);
   console.log('input log + mined:', await page.evaluate(() => { const L = LOS.store.lang(LOS.store.active()); return JSON.stringify({ log: (L.inputLog || []).length, mined: (L.mined || []).length }); }));
   await page.goto(URL + '#/report'); await page.waitForTimeout(200); await page.screenshot({ path: SHOTS + 'after-report.png', fullPage: true });
