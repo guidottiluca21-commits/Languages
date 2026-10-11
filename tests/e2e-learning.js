@@ -48,7 +48,11 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
       const mw = await page.$$('.runner-body [data-act="mw"]:not([disabled])');
       if (mw.length) { await mw[0].click(); const mt = await page.$$('.runner-body [data-act="mt"]:not([disabled])'); if (mt.length) await mt[i % mt.length].click(); continue; }
       if (await tryClick('[data-act="tok"]:not([disabled])')) continue;
-      const order = ['[data-act="got"]', '[data-act="tryAnyway"]', '[data-act="learnFirst"]', '[data-act="learn"]', '[data-act="shortTask"]', '[data-act="rep"][data-v="1"]', '[data-act="submit"]:not([disabled])', '[data-act="start"]','[data-act="go"]','[data-act="toQ"]','[data-act="opt"]','[data-act="vopt"]','[data-act="grade"][data-g="2"]','[data-act="next"]','[data-act="nextMeet"]','[data-act="toSum"]','[data-act="play"]','[data-act="finishDrill"][data-enter]','[data-act="done"]','[data-act="skipToType"]','[data-act="save"]','[data-act="analyse"]','[data-act="self"][data-v="2"]','[data-act="toQuiz"]','[data-act="saveW"]','[data-act="checkW"]','[data-act="finish"]','[data-act="fin"]','[data-act="run"]','[data-act="finishEmpty"]'];
+      // certification tasks: answer every question (first option / a short answer), then the runner's own buttons
+      for (const q of await page.$$('.runner-body input[data-q]:not([readonly])')) if (!(await q.inputValue())) await q.fill('test');
+      const open = await page.$$eval('.runner-body [data-act="ans"]:not([disabled])', (bs) => [...new Set(bs.map((x) => x.dataset.i))].filter((i) => !document.querySelector(`.runner-body [data-act="ans"][data-i="${i}"].active`)));
+      for (const gi of open) await page.click(`.runner-body [data-act="ans"][data-i="${gi}"] >> nth=0`);
+      const order = ['[data-act="startMock"]', '[data-act="toControlled"]', '[data-act="toGuided"]', '[data-act="typeIt"]', '[data-act="submitTask"]', '[data-act="taskDone"]', '[data-act="finishLearn"]', '[data-act="knew"]', '[data-act="prep"]', '[data-act="toAfter"]', '[data-act="save"]', '[data-act="pick"][data-v="0"]', '[data-act="nextPair"]', '[data-act="got"]', '[data-act="tryAnyway"]', '[data-act="learnFirst"]', '[data-act="learn"]', '[data-act="shortTask"]', '[data-act="rep"][data-v="1"]', '[data-act="submit"]:not([disabled])', '[data-act="start"]','[data-act="go"]','[data-act="toQ"]','[data-act="opt"]','[data-act="vopt"]','[data-act="grade"][data-g="2"]','[data-act="next"]','[data-act="nextMeet"]','[data-act="toSum"]','[data-act="play"]','[data-act="finishDrill"][data-enter]','[data-act="done"]','[data-act="skipToType"]','[data-act="save"]','[data-act="analyse"]','[data-act="self"][data-v="2"]','[data-act="toQuiz"]','[data-act="saveW"]','[data-act="checkW"]','[data-act="finish"]','[data-act="fin"]','[data-act="run"]','[data-act="finishEmpty"]', '[data-act="skip"]'];
       let clicked = false;
       for (const s of order) { if (await tryClick(s)) { clicked = true; break; } }
       if (!clicked) { await page.screenshot({ path: SHOTS + 'stuck-' + label + '.png', fullPage: true }); return 'stuck'; }
@@ -62,6 +66,7 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
   const routes = [R[0], 'practice/vocab/new', 'practice/review/all', R[1], R[2], 'practice/listening/external', R[3], R[4], 'practice/think/mix', R[5], R[6],
     'practice/lesson/scenario/' + BASICS, 'practice/scenario/' + BASICS + '/0', 'practice/lesson/writing/' + LOS_W,
     'practice/sim/' + ABR + '/0', 'practice/sim/' + BASICS + '/0', 'practice/flex', 'practice/flex/formal',
+    'practice/dictation', 'practice/shadow', 'practice/pairs', 'practice/audio', 'practice/convo', 'practice/recal',
     'practice/micro/controlled', 'practice/micro/application', 'practice/micro/dialogue', 'practice/micro/sentence', 'practice/remedy', 'practice/vocab/new', 'practice/review/all'];
   for (const r of routes) { await page.goto(URL + '#/' + r); await page.waitForTimeout(200); console.log(r, await drive(r.replace(/\//g, '_'))); }
   // today session from plan
@@ -92,6 +97,28 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
   console.log('abroad steps shown:', await page.evaluate(() => document.querySelectorAll('.path-step').length));
   await page.goto(URL + '#/professional'); await page.waitForTimeout(200);
   console.log('professional steps shown:', await page.evaluate(() => document.querySelectorAll('.path-step').length));
+  // extensive reading with mining, report, calendar export, progress check-up
+  const tid = await page.evaluate(() => LOS.lang.get(LOS.store.active()).texts[0].id);
+  await page.goto(URL + '#/read/text/' + tid); await page.waitForTimeout(250);
+  await page.click('.transcript .w >> nth=5'); await page.waitForTimeout(200);
+  const mineModal = await page.$('[data-add]'); if (mineModal) { const mi = await page.$('#mine-m'); if (mi) await mi.fill('test meaning'); await page.click('[data-add]'); }
+  await page.waitForTimeout(150); await page.click('[data-act="logRead"]'); await page.waitForTimeout(200);
+  console.log('input log + mined:', await page.evaluate(() => { const L = LOS.store.lang(LOS.store.active()); return JSON.stringify({ log: (L.inputLog || []).length, mined: (L.mined || []).length }); }));
+  await page.goto(URL + '#/report'); await page.waitForTimeout(200); await page.screenshot({ path: SHOTS + 'after-report.png', fullPage: true });
+  await page.goto(URL + '#/calendar'); await page.waitForTimeout(200);
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('[data-act="ics"]')]);
+  console.log('ics download:', dl ? await dl.suggestedFilename() : 'none');
+  await page.goto(URL + '#/progress'); await page.waitForTimeout(200); await page.click('[data-act="cando"] >> nth=0').catch(() => {});
+  // certifications: set an exam goal, learn a task type, a timed task, a mock paper
+  await page.goto(URL + '#/exams'); await page.waitForTimeout(250);
+  await page.fill('#g-dt', await page.evaluate(() => LOS.util.addDays(LOS.util.today(), 20)));
+  await page.click('[data-act="setGoal"]'); await page.waitForTimeout(300);
+  await page.screenshot({ path: SHOTS + 'after-exams.png', fullPage: true });
+  const ex = await page.evaluate(() => { const c = LOS.store.active(); const g = LOS.exams.goal(c); const nx = LOS.exams.nextActivity(c, () => 0.1); const obj = LOS.exams.tasksFor(g.id).find((t) => ['reading', 'listening', 'use'].includes(t.kind)); const prod = LOS.exams.tasksFor(g.id).find((t) => t.kind === 'writing'); return { id: g.id, next: nx && nx.task.id, mode: nx && nx.mode, obj: obj.id, objPaper: LOS.exams.paperOf(g.id, obj), prod: prod.id, inPlan: LOS.store.lang(c).plans[LOS.util.today()].items.filter((i) => i.type === 'examTask').length }; });
+  console.log('exam goal:', JSON.stringify(ex));
+  await page.goto(URL + '#/exams/' + ex.id); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'after-exam-profile.png', fullPage: true });
+  for (const r of [`practice/exam/${ex.next}/learn/${ex.id}`, `practice/exam/${ex.prod}/learn/${ex.id}`, `practice/exam/${ex.obj}/timed/${ex.id}`, `practice/mock/${ex.id}/${ex.objPaper}`]) { await page.goto(URL + '#/' + r); await page.waitForTimeout(200); console.log(r, await drive(r.replace(/\//g, '_'), 120)); }
+  console.log('exam state:', await page.evaluate((id) => { const c = LOS.store.active(); const at = LOS.exams.attempts(c, id); const rd = LOS.exams.readiness(c, id); return JSON.stringify({ attempts: at.map((a) => a.paper + ':' + a.mode + ':' + Math.round(a.pct * 100) + '%'), readiness: rd.overall, est: at[0] && at[0].est }); }, ex.id));
   // pathway view + engine state checks
   await page.goto(URL + '#/medical'); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'after-medical-pathway.png', fullPage: true });
   const pathOk = await page.evaluate(() => document.querySelectorAll('.path-step').length);
@@ -102,7 +129,7 @@ const MOCK = require('fs').readFileSync(__dirname + '/mock-supabase.js', 'utf8')
   await page.goto(URL + '#/review'); await page.click('#wr button[type="submit"]'); await page.waitForTimeout(300); await page.screenshot({ path: SHOTS + 'after-review-next.png', fullPage: true });
   // mobile
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const r of ['dashboard', 'calendar', 'practice/writing/free', 'abroad', 'library', 'progress']) { await page.goto(URL + '#/' + r); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'm-' + r.replace(/\//g,'_') + '.png', fullPage: false }); if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) console.log('MOBILE OVERFLOW on', r); }
+  for (const r of ['dashboard', 'calendar', 'practice/writing/free', 'abroad', 'library', 'progress', 'exams', 'exams/' + ex.id, 'report', 'practice/exam/' + ex.prod + '/practice/' + ex.id]) { await page.goto(URL + '#/' + r); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'm-' + r.replace(/\//g,'_') + '.png', fullPage: false }); if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) console.log('MOBILE OVERFLOW on', r); }
   // dark
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.evaluate(() => LOS.app.setTheme('dark')); await page.goto(URL + '#/dashboard'); await page.waitForTimeout(250); await page.screenshot({ path: SHOTS + 'dark-dashboard.png' });

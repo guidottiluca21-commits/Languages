@@ -20,10 +20,14 @@
   /* ====================================================================
    * Exercise player
    * ==================================================================== */
+  const DIFF_LABEL = { case: 'capital letter', accent: 'accent', spelling: 'spelling', form: 'ending/form', wrong: 'different word', missing: 'missing', extra: 'extra' };
+  H.diffHTML = function (d) {
+    return d.tokens.map((x) => x.t === 'ok' ? `<span class="d-ok">${esc(x.exp)}</span>` : x.t === 'missing' ? `<span class="d-miss" title="missing">${esc(x.exp)}</span>` : x.t === 'extra' ? `<span class="d-extra" title="extra">${esc(x.got)}</span>` : `<span class="d-bad" title="${DIFF_LABEL[x.t]}"><s>${esc(x.got)}</s> ${esc(x.exp)}</span>`).join(' ');
+  };
   const KIND_TITLE = {
     expose: 'New', 'mc-meaning': 'Recognize · meaning', 'mc-reverse': 'Recognize · which word?', 'mc-context': 'Recognize · in context', audio: 'Recognize · listen',
     'type-tr': 'Recall', 'type-def': 'Recall · from the definition', cloze: 'Complete the sentence', build: 'Build the sentence', use: 'Use it in one sentence',
-    rapid: 'Fast recall', match: 'Match', fix: 'Correct the sentence', gram: 'Grammar', mcq: 'Choose', free: 'Respond', repeat: 'Listen and repeat',
+    rapid: 'Fast recall', match: 'Match', dictation: 'Dictation', fix: 'Correct the sentence', gram: 'Grammar', mcq: 'Choose', free: 'Respond', repeat: 'Listen and repeat',
   };
   function makePlayer(s, cb) {
     let ex = null, res = null, given = '', hintShown = false, bankUsed = false, t0 = 0, built = [], match = null, outcome = null, change = null;
@@ -99,6 +103,12 @@
           b = `<div class="prompt sm">${esc(ex.prompt)}</div><p class="faint small">${ex.sentences === 1 ? 'One sentence is enough.' : `About ${ex.sentences} sentences.`} Use language you have practised.</p>
             <textarea class="textarea mt-12" id="ans" rows="${ex.sentences > 1 ? 4 : 2}" ${res ? 'readonly' : 'autofocus'}>${esc(given)}</textarea>
             ${res ? (res.analysis ? `<div class="card flat mt-12">${H.correctionsHTML(res.analysis, 3)}</div>` : '') : `<div class="cluster mt-8"><button class="btn primary" data-act="submit">Check</button></div>`}`; break;
+        case 'dictation':
+          b = `<p class="faint small">Listen and write exactly what you hear. You can replay it.</p>
+            <div class="cluster mt-8"><button class="btn" data-act="speak" data-text="${esc(ex.text)}" data-code="${esc(s.code)}">${icon('volume', 15)} Play</button><button class="btn ghost" data-act="speak" data-text="${esc(ex.text)}" data-code="${esc(s.code)}" data-rate="0.7">Slow</button></div>
+            <textarea class="textarea mt-12" id="ans" rows="2" ${res ? 'readonly' : 'autofocus'} spellcheck="false" autocapitalize="off" placeholder="Write what you hear">${esc(given)}</textarea>
+            ${res && res.diff ? `<div class="diff mt-12">${H.diffHTML(res.diff)}</div><div class="faint small mt-4">${esc(ex.text)}</div>` : ''}
+            ${res ? '' : '<div class="cluster mt-8"><button class="btn primary" data-act="submit">Check</button></div>'}`; break;
         case 'repeat':
           b = `<div class="example between"><span>${esc(ex.text)}</span><span class="cluster">${ui.speakBtn(ex.text, s.code)}<button class="btn ghost sm" data-act="speak" data-text="${esc(ex.text)}" data-code="${esc(s.code)}" data-rate="0.65">Slow</button></span></div>
             <p class="faint small mt-8">Listen, then say it aloud two or three times, copying rhythm and stress.</p>
@@ -131,6 +141,7 @@
         const el = s.body.querySelector('#ans'); if (!el) return; given = el.value; if (!given.trim()) return;
         if (ex.kind === 'fix' || ex.kind === 'gram') return settle(gramCheck(given));
         if (ex.kind === 'free') return settle(freeCheck(given));
+        if (ex.kind === 'dictation') { const d = LOS.dictation.diff(s.code, ex.text, given); if (!d.perfect) LOS.dictation.recordDiff(s.code, ex.text, given, d); LOS.skills.update(s.lang, 'listening', LOS.learn.targetLevelIdx(s.code, 'listening'), d.score, 0.015); return settle({ correct: d.score >= 0.9, close: !d.perfect && d.score >= 0.7, diff: d, note: d.perfect ? 'Perfect.' : `${d.errors.length} difference${d.errors.length === 1 ? '' : 's'}` }); }
         settle(ped.checkVocab(s.code, ex, given));
       },
       hint() { hintShown = true; cb.redraw(); },

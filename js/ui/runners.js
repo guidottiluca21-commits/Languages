@@ -210,6 +210,13 @@
       const sent = analysis.sentencesOut.find((x) => x.original === i.sentence);
       LOS.learn.recordError(code, { src, cat: i.cat, label: i.label, topic: i.topic, rule: i.rule, pat: i.match, sugg: i.suggestion || undefined, wrong: i.sentence, right: sent ? sent.corrected : i.suggestion || '', natural: sent && sent.natural !== sent.corrected ? sent.natural : undefined, note: i.why });
     });
+    // confusion between the learner's languages (another target language or Italian)
+    if (LOS.interference) {
+      const text = (analysis.sentencesOut || []).map((x) => x.original).join(' ');
+      const hits = text ? LOS.interference.detect(code, text) : [];
+      if (hits.length) LOS.interference.record(code, text, hits);
+      return seen.size + hits.length;
+    }
     return seen.size;
   }
 
@@ -495,12 +502,13 @@
       s.progress(steps[phase] || 0);
       if (phase === 'pre') {
         s.render(`<div class="stage-label">Reading · before you start</div><h2>${esc(t.title)}</h2><div class="cluster mt-8"><span class="pill">${t.l}</span><span class="pill outline">${words} words</span>${t.d === 'medical' ? '<span class="pill accent">Medical</span>' : ''}</div>
-          <div class="lesson mt-16 muted"><ul><li>Read once for the general idea — don't stop for unknown words.</li><li>Then answer ${t.qs.length} questions.</li><li>Tap words you want to learn; you'll add them at the end.</li></ul></div>
+          <div class="lesson mt-16 muted"><ul><li>Read once for the general idea — don't stop for unknown words.</li><li>Then answer ${t.qs.length} questions.</li><li>Tap any word to see it in context and add it (or its chunk) to your learning.</li></ul>
+          <div class="mt-12">${LOS.run.helpers.covPill ? LOS.run.helpers.covPill(s.code, t.text) : ''}</div></div>
           <div class="runner-foot"><span></span><button class="btn primary" data-act="go" data-enter autofocus>Start reading ${icon('arrowRight', 16)}</button></div>`);
       } else if (phase === 'read') {
         s.render(`<div class="between"><div class="stage-label">Input · read for gist</div>${ui.speakBtn(t.text, s.code, 'Read aloud')}</div><h2>${esc(t.title)}</h2>
           <div class="transcript mt-16">${wordsHTML(t.text)}</div>
-          <div class="runner-foot"><span class="faint small">${sel.size} word${sel.size === 1 ? '' : 's'} selected</span><button class="btn primary" data-act="toQ" data-enter>Questions ${icon('arrowRight', 16)}</button></div>`);
+          <div class="runner-foot"><span class="faint small">Tap a word to learn it in context</span><button class="btn primary" data-act="toQ" data-enter>Questions ${icon('arrowRight', 16)}</button></div>`);
         s.body.querySelectorAll('.w').forEach((el) => { if (sel.has(el.dataset.w)) el.classList.add('sel'); });
       } else if (phase === 'q') {
         const q = t.qs[qi];
@@ -519,7 +527,7 @@
     }
     s.on({
       go() { phase = 'read'; draw(); },
-      word(el) { const w = el.dataset.w; if (!w) return; if (sel.has(w)) { sel.delete(w); } else sel.add(w); s.body.querySelectorAll(`.w[data-w="${CSS.escape(w)}"]`).forEach((x) => x.classList.toggle('sel', sel.has(w))); const f = s.body.querySelector('.runner-foot .faint'); if (f) f.textContent = `${sel.size} word${sel.size === 1 ? '' : 's'} selected`; },
+      async word(el) { const w = el.dataset.w; if (!w) return; const added = await LOS.run.mineCard(s.code, w, LOS.run.sentenceOf(t.text, w), 'reading'); if (added) s.body.querySelectorAll(`.w[data-w="${CSS.escape(w)}"]`).forEach((x) => x.classList.add('sel')); },
       toQ() { phase = 'q'; qi = 0; draw(); },
       peek() { ui.modal({ title: t.title, body: `<div class="transcript">${esc(t.text)}</div>` }); },
       opt(el) {
@@ -611,7 +619,7 @@
       stop() { LOS.speech.stop(); },
       rate(el) { rate = +el.dataset.v; s.body.querySelectorAll('[data-act="rate"]').forEach((b) => b.classList.toggle('active', b === el)); },
       say(el) { LOS.speech.speak(sentences[+el.dataset.k], s.code, { rate }); },
-      word(el) { const w = el.dataset.w; if (!w) return; sel.has(w) ? sel.delete(w) : sel.add(w); el.classList.toggle('sel', sel.has(w)); },
+      async word(el) { const w = el.dataset.w; if (!w) return; const added = await LOS.run.mineCard(s.code, w, LOS.run.sentenceOf(t.text, w), 'listening'); if (added) el.classList.add('sel'); },
       opt(el) {
         if (res) return; given = el.dataset.v;
         const q = STEPS[step] === 'general' ? gistQ[0] : detailQ[qi];

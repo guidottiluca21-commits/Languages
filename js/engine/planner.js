@@ -391,7 +391,7 @@
     const hasMemory = Object.keys(ctx.lang.vocab).some((id) => !ctx.lang.vocab[id].assumed) || ctx.dueG.length || ctx.dueE;
     const newN = mode === 'recovery' ? 3 : ctx.backlog > 40 ? 3 : 5;
     const handsFree = study === 'commute';
-    const review = (m, cap, title, reason) => { const r = reviewItem(ctx, m, cap, title || 'Review', reason || (mode === 'recovery' ? 'Welcome back: the most useful reviews only — nothing to catch up on' : 'Spaced retrieval: recall before you forget'), dueLine); if (handsFree) { r.payload.handsFree = true; r.subtitle = 'Listen and recognise · no typing'; } return r; };
+    const review = (m, cap, title, reason) => { const r = reviewItem(ctx, m, cap, title || 'Review', reason || (mode === 'recovery' ? 'Welcome back: the most useful reviews only — nothing to catch up on' : 'Spaced retrieval: recall before you forget'), dueLine); if (handsFree) { r.payload.handsFree = true; r.type = 'audioReview'; r.title = 'Hands-free review'; r.subtitle = 'The app speaks, you answer aloud'; } return r; };
     const vocabNew = (m, n) => { const v = makeItem(ctx, 'vocabulary', m, mode, rnd, 'New language before it is tested: see → hear → recognize → recall'); if (v) { v.payload.count = n; v.payload.handsFree = handsFree || undefined; v.subtitle = `${n} new words & chunks${ctx.med > 0.3 ? ' · incl. medical' : ''}`; } return v; };
     let challenge = null;
 
@@ -402,7 +402,12 @@
       if (m >= 10) push(vocabNew(Math.round(m * 0.2), 3));
       const t = LOS.learn.pickText(code, 'listening', { rnd });
       if (t && m >= 10) push({ id: U.uid('it'), type: 'listening', skill: 'listening', title: 'Listening', subtitle: `Guided: ${t.title}`, level: t.l, minutes: Math.round(m * 0.35), status: 'pending', reason: 'Input you can follow on the move', payload: { mode: 'guided', textId: t.id, short: m < 20 } });
-      push(microItem(Math.max(2, m - U.sum(items.map((i) => i.minutes))), 'commute', U.clamp(Math.round(m * 0.5), 3, 8), 'Listen, repeat, recognise — shadowing builds pronunciation and fluency'));
+      const rest = Math.max(2, m - U.sum(items.map((i) => i.minutes)));
+      if (rest >= 5) {
+        const pairs = (LOS.MINIMAL_PAIRS || {})[code] && rnd() < 0.35;
+        push(pairs ? { id: U.uid('it'), type: 'pairs', skill: 'speaking', title: 'Pronunciation', subtitle: 'Minimal pairs · listen and choose', minutes: rest, status: 'pending', reason: 'Train your ear for the sounds Italian does not have', payload: {} }
+          : { id: U.uid('it'), type: 'shadow', skill: 'speaking', title: 'Shadowing', subtitle: 'Listen · repeat · compare', minutes: rest, status: 'pending', reason: 'Shadowing builds rhythm, pronunciation and fluency', payload: { count: U.clamp(Math.round(rest / 1.5), 3, 8) } });
+      } else push(microItem(rest, 'commute', U.clamp(Math.round(m * 0.5), 3, 8), 'Listen, repeat, recognise — shadowing builds pronunciation and fluency'));
     } else if (minutes <= 7 || study === 'break') {
       // 5 MINUTES: 2–3 reviews · 1–2 high-value new items · one retrieval · one very short production
       if (hasMemory) push(review(2, 3, 'Quick review'));
@@ -456,6 +461,7 @@
       const im = Math.min(12, Math.max(8, Math.round(rem * 0.4)));
       push(makeItem(ctx, input, im, mode, rnd, reasonFor(ctx, input, w)));
       rem = minutes - U.sum(items.map((i) => i.minutes));
+      if (rem >= 13 && hasMemory && rnd() < 0.5) { push({ id: U.uid('it'), type: 'dictation', skill: 'listening', title: 'Dictation', subtitle: 'Sentences you know · ear + spelling', minutes: 5, status: 'pending', reason: 'Listening and spelling together, with language you have already met', payload: { count: 5 } }); rem -= 5; }
       if (rem >= 8) { push(productionItem(ctx, Math.min(rem, 15), mode, rnd)); rem = minutes - U.sum(items.map((i) => i.minutes)); }
       if (rem >= 8) {
         const pool = {}; ['writing', 'speaking', 'think', 'listening', 'reading'].forEach((k) => { if (!items.some((i) => i.skill === k)) pool[k] = w[k]; });
@@ -464,6 +470,23 @@
       rem = minutes - U.sum(items.map((i) => i.minutes));
       if (rem > 0 && items.length) items[items.length - 1].minutes += rem;
       challenge = challengeItem(ctx, mode, rnd);
+    }
+    // exam goal: exam-format practice replaces part of the production/input time, more as the date approaches
+    if (LOS.exams && !handsFree && minutes >= 15 && mode !== 'recovery') {
+      const sh = LOS.exams.share(code);
+      const g = LOS.exams.goal(code);
+      const swappable = (i) => ['writing', 'speaking', 'sim', 'scenario', 'think', 'reading', 'listening', 'micro'].includes(i.type) && !(i.type === 'micro' && ['controlled', 'retrieval'].includes(i.payload.focus));
+      let n = sh >= 0.35 && minutes >= 30 ? 2 : sh > 0 ? 1 : 0;
+      const used = new Set();
+      while (n-- > 0) {
+        const cands = items.filter(swappable).sort((a, b) => b.minutes - a.minutes);
+        const nx = LOS.exams.nextActivity(code, rnd, used);
+        if (!cands.length || !nx) break;
+        const old = cands[0];
+        const ex = { id: U.uid('it'), type: 'examTask', skill: nx.task.kind === 'use' ? 'grammar' : nx.task.kind, title: `Exam · ${g.name}`, subtitle: `${nx.type.name}${nx.mode === 'learn' ? ' · learn' : nx.mode === 'timed' ? ' · timed' : ''}`, level: nx.task.level, minutes: old.minutes, status: 'pending', reason: g.daysLeft != null ? `${g.name} in ${g.daysLeft} days — ${nx.paper.name} is your highest-impact paper` : `${g.name}: ${nx.paper.name} is your highest-impact paper`, payload: { taskId: nx.task.id, mode: nx.mode, examId: g.id } };
+        items[items.indexOf(old)] = ex;
+        used.add(nx.type.id);
+      }
     }
     // "Why am I learning this?" — only where it adds relevance (goal-linked activities)
     items.forEach((it) => { const y = LOS.goals ? LOS.goals.why(code, it) : ''; if (y) it.why = y; });

@@ -60,6 +60,14 @@ for (const code of ['en', 'es', 'de', 'fr']) {
   LOS.exposure.toggle(code, 'listen');
   LOS.goals.snapshotAllocation(code);
   LOS.ped.recordSpeak(code, 0.8);
+  // input, mining, can-do, certifications
+  LOS.input.log(code, { kind: 'reading', title: 'Novel', minutes: 30, words: 4000 });
+  LOS.input.mine(code, { w: 'zzword', sentence: 'A zzword in context.', meaning: 'test' });
+  LOS.cando.toggle(code, LOS.cando.list(code)[0].key);
+  const ex = LOS.exams.list(code)[0];
+  LOS.exams.setGoal(code, { id: ex.id, level: ex.focus, date: U.addDays(U.today(), 40) });
+  const et = LOS.exams.tasksFor(ex.id).find((t) => t.kind === 'writing');
+  LOS.exams.record(code, { exam: ex.id, paper: LOS.exams.paperOf(ex.id, et), type: et.type, task: et.id, mode: 'timed', pct: 0.42, est: 'estimate', criteria: [{ label: 'Grammar', key: 'grammar', v: 0.4 }, { label: 'Pronunciation', key: 'pron', v: null, self: true }], secs: 1500, words: 180 });
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.', natural: 'People are exhausted.', note: 'plural' });
   LOS.learn.recordError(code, { src: 'writing', cat: 'grammar', label: 'Agreement', wrong: 'People is tired.', right: 'People are tired.' }); // same-day duplicate → count 2
   LOS.learn.recordSession(code, { type: 'grammar', skill: 'grammar', minutes: 12, score: 0.75, title: 'Conditionals' });
@@ -106,7 +114,7 @@ ok(!d, 'state → rows → database → state is lossless' + (d ? '\n     first 
 const rows2 = LOS.mapper.toRows(st2, uid);
 delete rows.vocabulary_reviews; delete rows2.vocabulary_reviews;
 ok(JSON.stringify(rows2) === JSON.stringify(Object.assign({}, rows, { listening_content: rows.listening_content })), 're-mapping the rebuilt state yields identical rows (no spurious re-uploads)');
-ok(Object.keys(st2.langs.en.vocab).length === Object.keys(st.langs.en.vocab).length && st2.langs.es.custom.length === 1, 'English and Spanish vocabulary stay separate');
+ok(Object.keys(st2.langs.en.vocab).length === Object.keys(st.langs.en.vocab).length && st2.langs.es.custom.length === st.langs.es.custom.length && st.langs.es.custom.every((c) => c.id.startsWith('es:')), 'English and Spanish vocabulary stay separate');
 for (const c of ['en', 'es', 'de', 'fr']) ok(rows.language_profiles.some((r) => r.language_code === c), `a language_profiles row for ${c}`);
 ok(['vocabulary', 'grammar_progress', 'errors', 'study_sessions', 'listening_content'].every((t) => rows[t].every((r) => ['en', 'es', 'de', 'fr'].includes(r.language_code) && (!r.item_key || !r.item_key.includes(':') || r.item_key.startsWith(r.language_code + ':')))), 'every learning row carries language_code and only its own language\'s items');
 ok(Object.keys(st2.langs.de.vocab).every((k) => k.startsWith('de:')) && Object.keys(st2.langs.fr.vocab).every((k) => k.startsWith('fr:')), 'German and French vocabulary stay separate');
@@ -117,6 +125,8 @@ ok(rows.vocabulary.some((r) => r.exposure_count > 0 && r.last_seen), 'vocabulary
 ok(rows.grammar_progress.every((r) => r.learning_stage >= 0 && r.learning_stage <= 6), 'grammar rows use learning_stage 0–6');
 ok(rows.input_library.length === 4 && rows.input_library.every((r) => r.title && r.content && r.data && r.data.out), 'input_library rows carry text and the extracted learning material');
 ok(rows.language_profiles.every((r) => r.data.sims && r.data.sims.length && r.data.target && r.data.exposure && !r.data.library), 'simulations, goal and exposure live in language_profiles.data (library has its own table)');
+ok(rows.exam_attempts.length === 4 && rows.exam_attempts.every((r) => r.exam_id && r.paper && r.mode === 'timed' && r.score_pct === 0.42 && r.criteria.length === 2 && r.data.secs === 1500), 'exam_attempts rows: exam, paper, mode, estimate and criteria per attempt');
+ok(rows.language_profiles.every((r) => !r.data.examAttempts && r.data.exam && r.data.examProg && r.data.inputLog && r.data.mined && r.data.cando), 'exam goal/progress, input log, mined words and can-do live in language_profiles.data (attempts have their own table)');
 process.exitCode = failures ? 1 : 0;
 console.log(failures ? `${failures} FAILED` : 'ALL PASSED');
 

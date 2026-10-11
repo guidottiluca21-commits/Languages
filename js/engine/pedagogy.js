@@ -588,6 +588,8 @@
       respond: () => { const ts = p.think.filter((t) => ['rapid', 'situational', 'describe'].includes(t.type) && U.levelIndex(t.l) <= lvl); const t = U.pick(ts.length ? ts : p.think, rnd); return t ? { micro: 'respond', title: 'Respond in one sentence', kind: 'free', prompt: t.p, sentences: 1, model: t.model || '', keys: t.keys || [] } : null; },
       respond3: () => { const ts = p.think.filter((t) => ['describe', 'explain', 'opinion', 'situational'].includes(t.type) && U.levelIndex(t.l) <= lvl); const t = U.pick(ts.length ? ts : p.think, rnd); return t ? { micro: 'respond3', title: 'Now respond in three sentences', kind: 'free', prompt: t.p, sentences: 3, model: t.model || '', keys: t.keys || [] } : null; },
       differently: () => { const t = U.pick(p.think.filter((y) => ['paraphrase', 'reformulate'].includes(y.type) && U.levelIndex(y.l) <= lvl + 1), rnd); return t ? { micro: 'differently', title: 'Say it differently', kind: 'free', prompt: t.p, sentences: 1, model: t.model || '' } : null; },
+      contrast: () => (LOS.interference ? LOS.interference.contrastItems(code, 1, rnd)[0] || null : null),
+      dictation: () => { const x = LOS.dictation && LOS.dictation.pick(code, 1, { rnd })[0]; return x ? { micro: 'dictation', title: 'Dictation', kind: 'dictation', text: x.text, id: x.id } : null; },
       repeat: () => { const id = U.pick(recent, rnd); const v = id && itemFor(code, id); return v && (v.ex || v.w) ? { micro: 'repeat', title: 'Listen and repeat', kind: 'repeat', id, v, text: v.ex || v.w } : null; },
     };
     const MIX = {
@@ -600,7 +602,10 @@
       dialogue: ['dialogue', 'respond', 'register', 'natural', 'respond3'],
       mixed: ['choose', 'complete', 'translate', 'build', 'match', 'correct', 'natural', 'register', 'dialogue', 'respond', 'listen', 'repeat', 'grammar'],
     };
-    const kinds = MIX[focus] || MIX.mixed;
+    let kinds = MIX[focus] || MIX.mixed;
+    // learners of several languages: contrast them now and then; dictation trains ear + spelling
+    if (['mixed', 'application', 'controlled'].includes(focus) && LOS.store.studying().length >= 2) kinds = kinds.concat(['contrast']);
+    if (['mixed', 'controlled', 'commute'].includes(focus) && LOS.speech && LOS.speech.ttsSupported && focus !== 'commute') kinds = kinds.concat(['dictation']);
     let guard = 0;
     while (out.length < n && guard++ < n * 12) {
       const k = focus === 'sentence' ? 'respond' : kinds[(out.length + Math.floor(rnd() * kinds.length)) % kinds.length];

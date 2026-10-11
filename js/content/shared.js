@@ -81,11 +81,11 @@
     ERROR_CATS: [
       ['grammar', 'Grammar'], ['vocabulary', 'Vocabulary'], ['spelling', 'Spelling'], ['wordchoice', 'Word choice'],
       ['collocation', 'Collocation'], ['syntax', 'Syntax'], ['register', 'Register'], ['pronunciation', 'Pronunciation'],
-      ['falsefriend', 'False friend'], ['interference', 'Italian interference'], ['naturalness', 'Naturalness'],
+      ['falsefriend', 'False friend'], ['interference', 'Italian interference'], ['naturalness', 'Naturalness'], ['crosslang', 'Confusion between languages'], ['listening', 'Listening'], ['capitalisation', 'Capitalisation'],
     ],
     /* Which skill an error category feeds (language-specific categories included). Unknown → grammar. */
     ERROR_SKILL: {
-      vocabulary: 'vocabulary', collocation: 'vocabulary', naturalness: 'vocabulary', wordchoice: 'vocabulary', falsefriend: 'vocabulary', interference: 'vocabulary',
+      vocabulary: 'vocabulary', collocation: 'vocabulary', naturalness: 'vocabulary', crosslang: 'vocabulary', listening: 'listening', wordchoice: 'vocabulary', falsefriend: 'vocabulary', interference: 'vocabulary',
       pronunciation: 'speaking', spelling: 'writing', capitalisation: 'writing', register: 'writing',
     },
     errorSkill(cat) { return LOS.shared.ERROR_SKILL[cat] || 'grammar'; },

@@ -760,3 +760,27 @@ details > summary::-webkit-details-marker { display: none; }
   .today-card { padding: 18px 16px; }
   .dim { grid-template-columns: minmax(96px, 130px) 1fr 38px; }
 }
+
+/* Input & speaking practice */
+.diff { line-height: 2; font-size: 16px; }
+.diff .d-ok { color: var(--text); }
+.diff .d-miss { color: var(--error); border-bottom: 2px dashed var(--error); }
+.diff .d-extra { color: var(--text-3); text-decoration: line-through; }
+.diff .d-bad { color: var(--warning); } .diff .d-bad s { color: var(--error); }
+.cov { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); }
+.cov.ideal, .cov.easy { background: var(--success-soft); color: var(--success); }
+.cov.intensive { background: var(--warning-soft); color: var(--warning); }
+.cov.hard { background: var(--error-soft); color: var(--error); }
+.big-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.big-actions .btn { min-height: 72px; font-size: 17px; }
+.mine-card .ctx { font-style: italic; color: var(--text-2); }
+.timer-big { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.exam-card { display: block; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); color: inherit; text-decoration: none; }
+.exam-card:hover { border-color: var(--border-strong); }
+.exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.rubric { display: flex; flex-direction: column; gap: 6px; }
+.notes-box { white-space: pre-wrap; font-family: var(--mono); font-size: 13px; background: var(--surface-2); padding: 12px 14px; border-radius: var(--r-sm); }
+.data-table { border-collapse: collapse; font-size: 14px; } .data-table td, .data-table th { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+@media print { .sidebar, #sidebar, #topbar, #bottom-nav, .no-print { display: none !important; } .view { max-width: none !important; } body { background: #fff; } }
+.chip.correct-chip { border-color: var(--success); color: var(--success); }
+.exam-text { max-height: 46vh; overflow-y: auto; }

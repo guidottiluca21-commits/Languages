@@ -167,6 +167,7 @@
         ${open ? libDetail(open) : ''}
         <div class="section"><div class="section-head"><h2>Your texts</h2><span class="faint small">${items.length}</span></div>
           <div class="list">${items.length ? items.map((x) => `<div class="row"><div class="grow clickable" data-act="openLib" data-id="${x.id}" role="button" tabindex="0"><div class="title">${esc(x.title)}</div><div class="meta">${esc((KINDS.find((k) => k[0] === x.kind) || [])[1] || '')} · ${U.fmtDate(x.date)}${x.out ? ` · ${(x.out.vocab || []).length} items selected` : ''}</div></div>
+            <span class="hide-sm">${LOS.run.helpers.covPill(code(), x.text)}</span><a class="btn sm" href="#/read/lib/${x.id}">${['podcast', 'video', 'transcript'].includes(x.kind) ? 'Open' : 'Read'}</a>
             ${x.out ? `<a class="btn sm primary" href="#/practice/library/${x.id}">Practise</a>` : `<button class="btn sm" data-act="prep" data-id="${x.id}">Prepare</button>`}<button class="btn ghost icon sm" data-act="delLib" data-id="${x.id}" aria-label="Delete">${icon('trash', 14)}</button></div>`).join('') : '<p class="muted small">Nothing yet.</p>'}</div></div>
       </div>`;
     },
@@ -214,7 +215,7 @@
         <div><div class="eyebrow">Useful for you (${(o.vocab || []).length})</div>${(o.vocab || []).length ? `<ul class="small mt-4">${o.vocab.map((v) => `<li><strong>${esc(v.w)}</strong>${v.tr ? ` — ${esc(v.tr)}` : ''}</li>`).join('')}</ul>` : '<p class="faint small">Nothing at your level from the curriculum.</p>'}</div>
         <div><div class="eyebrow">Words to look up</div><div class="cluster mt-4">${(o.unknown || []).map((w) => `<button class="chip sm" data-act="addWord" data-id="${it.id}" data-w="${esc(w)}" title="Add to my vocabulary">${esc(w)} +</button>`).join('') || '<span class="faint small">—</span>'}</div>
           <div class="eyebrow mt-12">Practice</div><p class="small">${(o.questions || []).length} comprehension question${(o.questions || []).length === 1 ? '' : 's'} · ${(o.prompts || []).length ? '1 speaking prompt' : ''}</p></div></div>
-      <div class="cluster mt-12"><a class="btn primary sm" href="#/practice/library/${it.id}">Practise this text</a></div></div>`;
+      <div class="cluster mt-12"><a class="btn sm" href="#/read/lib/${it.id}">Read it freely</a><a class="btn primary sm" href="#/practice/library/${it.id}">Practise this text</a><span class="grow"></span>${LOS.run.helpers.covPill(code(), it.text)}</div></div>`;
   }
 
   LOS.adaptUI = { home, homeHandlers, analyticsHTML, errorBankHTML, sessionSummary };

@@ -12,10 +12,11 @@
   /* ---------------- shell ---------------- */
   const NAV = [
     { group: 'Learn', items: [['dashboard', 'Dashboard', 'dashboard'], ['today', 'Today', 'today'], ['grammar', 'Grammar', 'grammar'], ['vocabulary', 'Vocabulary', 'vocabulary'], ['reading', 'Reading', 'reading'], ['listening', 'Listening', 'listening'], ['writing', 'Writing', 'writing'], ['speaking', 'Speaking', 'speaking'], ['pronunciation', 'Pronunciation', 'volume'], ['think', 'Think in the language', 'think'], ['compare', 'Compare languages', 'swap'], ['library', 'Input library', 'reading']] },
+    { group: 'Exams', items: [['exams', 'Certifications', 'award']] },
     { group: 'Real world', items: [['medical', 'Medical Language', 'medical'], ['professional', 'Professional Communication', 'professional'], ['abroad', 'Life Abroad', 'globe']] },
     { group: 'Track', items: [['calendar', 'Calendar', 'calendar'], ['progress', 'Progress', 'progress'], ['errors', 'Error Bank', 'errors'], ['review', 'Weekly Review', 'review']] },
   ];
-  const ROUTE_TITLE = { dashboard: 'Dashboard', today: 'Today', grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', pronunciation: 'Pronunciation', compare: 'Compare', medical: 'Medical', professional: 'Professional', calendar: 'Calendar', progress: 'Progress', errors: 'Error Bank', review: 'Weekly Review', settings: 'Settings', assessment: 'Assessment', session: 'Session', practice: 'Practice', abroad: 'Life Abroad', library: 'Input library' };
+  const ROUTE_TITLE = { dashboard: 'Dashboard', today: 'Today', grammar: 'Grammar', vocabulary: 'Vocabulary', reading: 'Reading', listening: 'Listening', writing: 'Writing', speaking: 'Speaking', think: 'Think', pronunciation: 'Pronunciation', compare: 'Compare', medical: 'Medical', professional: 'Professional', calendar: 'Calendar', progress: 'Progress', errors: 'Error Bank', review: 'Weekly Review', settings: 'Settings', assessment: 'Assessment', session: 'Session', practice: 'Practice', abroad: 'Life Abroad', library: 'Input library', read: 'Read', report: 'Weekly report', exams: 'Certifications' };
 
   /** Compact language selector: "🇩🇪 Deutsch · A2 ▾" with a menu of all languages. */
   function langSwitch(where) {
@@ -277,7 +278,7 @@
     mount(root, params) {
       const code = LOS.store.active();
       const host = root.id === 'runner-root' ? root : root.querySelector('#runner-root');
-      const [type, arg, arg2] = params;
+      const [type, arg, arg2, arg3] = params;
       const p = LOS.lang.get(code);
       const item = { id: U.uid('adhoc'), status: 'pending', minutes: 0 };
       const map = {
@@ -294,6 +295,14 @@
         sim: () => { const m = p.index.modules[arg]; return m && { type: 'sim', skill: 'speaking', title: 'Scenario simulation', subtitle: m.title, level: m.l, payload: { moduleId: arg, idx: +(arg2 || 0) } }; },
         flex: () => ({ type: 'flex', skill: 'writing', title: 'Language flexibility', subtitle: 'Say it differently', payload: { target: arg || 'different' } }),
         library: () => ({ type: 'library', skill: 'reading', title: 'Input library', subtitle: ((LOS.library.list(code).find((x) => x.id === arg)) || {}).title || 'Your text', payload: { id: arg } }),
+        dictation: () => ({ type: 'dictation', skill: 'listening', title: 'Dictation', subtitle: 'Listen and write', payload: { count: 5, paragraph: arg === 'paragraph' } }),
+        shadow: () => ({ type: 'shadow', skill: 'speaking', title: 'Shadowing', subtitle: 'Listen · repeat · compare', payload: { count: 5 } }),
+        pairs: () => ({ type: 'pairs', skill: 'speaking', title: 'Pronunciation', subtitle: 'Minimal pairs', payload: { set: arg } }),
+        audio: () => ({ type: 'audioReview', skill: 'review', title: 'Hands-free review', subtitle: 'Answer aloud', payload: { cap: 12 } }),
+        convo: () => ({ type: 'convo', skill: 'speaking', title: 'Conversation prep', subtitle: 'Before & after a real conversation', payload: { after: arg === 'after' } }),
+        recal: () => ({ type: 'recal', skill: 'grammar', title: 'Monthly check-up', subtitle: 'Recalibration', payload: {} }),
+        exam: () => { const t = LOS.exams.task(arg); if (!t) return null; const ex = LOS.exams.exam(arg3 || LOS.exams.examsOf(t)[0]); const ty = LOS.exams.type(t.type); return { type: 'examTask', skill: t.kind === 'use' ? 'grammar' : t.kind, title: ex.name, subtitle: ty.name, level: t.level, payload: { taskId: arg, mode: arg2 || undefined, examId: ex.id } }; },
+        mock: () => { const ex = LOS.exams.exam(arg); return ex && { type: 'mock', skill: 'reading', title: 'Mock exam', subtitle: ex.name + (arg2 && arg2 !== 'all' ? ' · ' + ((ex.papers.find((p) => p.id === arg2) || {}).name || '') : ''), payload: { examId: arg, paper: arg2 || 'all' } }; },
         remedy: () => ({ type: 'remedy', skill: 'grammar', title: 'Error clinic', subtitle: 'Recurring error', payload: arg ? { key: decodeURIComponent(arg), label: decodeURIComponent(arg) } : {} }),
         scenario: () => { const m = p.index.modules[arg]; return m && { type: 'scenario', skill: 'speaking', title: m.id.includes('-med-') ? 'Medical scenario' : 'Professional scenario', subtitle: m.title, level: m.l, payload: { moduleId: arg, idx: +(arg2 || 0) } }; },
       };

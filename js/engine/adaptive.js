@@ -19,12 +19,15 @@
     ['grammar', 'Grammar'], ['vocabulary', 'Vocabulary'], ['collocation', 'Collocation'], ['preposition', 'Prepositions'],
     ['articles', 'Articles'], ['wordorder', 'Word order'], ['pronunciation', 'Pronunciation'], ['fluency', 'Fluency'],
     ['register', 'Register'], ['professional', 'Professional communication'], ['interference', 'Italian interference'], ['unnatural', 'Unnatural phrasing'],
+    ['crosslang', 'Confusion between languages'], ['listening', 'Listening (missed words)'],
   ];
   const BANK_LABEL = Object.fromEntries(BANK_CATS);
   /** Map a raw error entry (writing rule, grammar drill, vocabulary, speaking) to a bank category. */
   function classify(e) {
     const t = `${e.label || ''} ${e.note || ''} ${e.cat || ''} ${e.rule || ''}`.toLowerCase();
     if (e.cat === 'pronunciation') return 'pronunciation';
+    if (e.cat === 'crosslang') return 'crosslang';
+    if (e.cat === 'listening') return 'listening';
     if (e.cat === 'fluency' || /hesitation|filler|fluen/.test(t)) return 'fluency';
     if (/prepos|präpos|preposici|prépos/.test(t)) return 'preposition';
     if (/article|artikel|artículo|artículos|articles?\b/.test(t)) return 'articles';
@@ -60,7 +63,7 @@
       if (!o.pat && e.pat) o.pat = e.pat;
     });
     const rem = lang.remedied || {};
-    const out = Object.values(g).filter((o) => meaningful({ cat: o.cat === 'grammar' ? (lang.errors.find((e) => keyOf(e) === o.key) || {}).cat : o.cat, label: o.label, wrong: 1 }, o.count) && (o.count >= 2 || ['interference', 'preposition', 'collocation', 'professional'].includes(o.cat)));
+    const out = Object.values(g).filter((o) => meaningful({ cat: o.cat === 'grammar' ? (lang.errors.find((e) => keyOf(e) === o.key) || {}).cat : o.cat, label: o.label, wrong: 1 }, o.count) && (o.count >= 2 || ['interference', 'preposition', 'collocation', 'professional', 'crosslang'].includes(o.cat)));
     out.forEach((o) => {
       const r = rem[o.topic || o.label];
       const recent = U.diffDays(o.last, U.today());
@@ -380,5 +383,6 @@
     for (let i = 0; i < weeks; i++) { const wk = U.addDays(weekKey(), -7 * i); const w = ex[wk] || {}; n += 4; done += Object.values(w).filter(Boolean).length; }
     return { done, n };
   }
-  LOS.exposure = { week, toggle, history, items: exposureItems };
+  function mark(code, k) { const lang = L(code); lang.exposure = lang.exposure || {}; const wk = weekKey(); (lang.exposure[wk] = lang.exposure[wk] || {})[k] = true; }
+  LOS.exposure = { week, toggle, mark, history, items: exposureItems };
 })();

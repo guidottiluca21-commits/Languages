@@ -26,6 +26,7 @@ computer, iPhone e iPad. Progettata per costare **0 €**.
 12. [Le quattro lingue e come aggiungerne una quinta](#12-le-quattro-lingue-e-come-aggiungerne-una-quinta)
 13. [Motore pedagogico 2.0](#13-motore-pedagogico-20)
 14. [Piattaforma adattiva e tutor AI](#14-piattaforma-adattiva-e-tutor-ai)
+15. [Input calibrato, pronuncia e certificazioni](#15-input-calibrato-pronuncia-e-certificazioni)
 
 ---
 
@@ -651,3 +652,175 @@ precedente; la RLS tra due utenti è stata controllata nell'installazione da zer
     professionale generale, più i tuoi testi (libreria) e l'AI se configurata.
   - Ollama funziona solo su computer, non su telefono, e richiede di autorizzare il sito (`OLLAMA_ORIGINS`).
 
+## 15. Input calibrato, pronuncia e certificazioni
+
+Tutto funziona in locale, senza AI e senza servizi a pagamento. Se configuri un provider AI (sezione 14),
+arricchisce le spiegazioni e il feedback; non è mai obbligatorio.
+
+**A. Input calibrato sul tuo vocabolario** (`js/engine/input.js`)
+- Ogni testo mostra la **copertura lessicale stimata**: "Conosci circa il 96% delle parole — ideale per
+  la lettura estensiva". Fasce: ≥95% ideale · 85–95% studio intensivo · <85% troppo difficile per ora.
+- La stima unisce:
+  - il tuo lessico (elementi imparati = noti, punti deboli = non noti);
+  - le parole frequenti del tuo livello;
+  - il livello del curriculum in cui ogni parola compare per la prima volta.
+
+  È una **stima**, non un conteggio esatto.
+- I testi consigliati sono quelli più vicini alla fascia 95–98%. Il planner preferisce questi testi.
+- **Sentence mining**: tocchi una parola in un testo (lettura, ascolto, libreria, `#/read`) → scheda con
+  significato e chunk → **"Add to my learning"**. Se c'è un chunk che contiene la parola, viene
+  proposto quello. L'elemento entra nella coda allo stadio 0, con la frase originale come esempio.
+- **Diario dell'input estensivo** (letture e ascolti fuori dalle sessioni): conta per l'esposizione e per
+  gli obiettivi, ma non crea mai obblighi né arretrati.
+
+**B. Dettato, shadowing, pronuncia**
+- **Dettato** (`#/practice/dictation`): solo frasi fatte di lessico che hai già incontrato. Il confronto è
+  parola per parola e distingue:
+  - ortografia;
+  - accenti/Umlaut;
+  - maiuscole (DE);
+  - desinenze (forma);
+  - parole mancanti o in più.
+
+  Gli errori entrano nell'Error Bank (ortografia / grammatica / ascolto). Il dettato è anche un micro-task
+  e un blocco della modalità Studio intenso.
+- **Shadowing** (`#/practice/shadow`): ascolti il modello, ti registri e confronti le due registrazioni.
+  Se il browser supporta il riconoscimento vocale, vedi anche le parole riconosciute.
+- **Coppie minime** (`#/practice/pairs`): 5 contrasti per lingua, scelti per chi parla italiano (es. ship/sheep,
+  pero/perro, Mutter/Mütter, vu/vous). Prima ascolti e scegli, poi ti registri e confronti.
+- **Limite dichiarato**: non c'è una valutazione automatica dei fonemi. Il confronto lo fai tu, ascoltando.
+
+**C. Ripasso audio a mani libere** (`#/practice/audio`, predefinito nella modalità *Tragitto*)
+- L'app dice la traduzione italiana, la definizione o una frase con un buco. Tu rispondi a voce.
+- Il confronto è tollerante: ignora articoli e accenti e accetta piccoli errori del riconoscimento.
+- Conta come richiamo, il tipo di ripasso più forte.
+- Senza riconoscimento vocale (Firefox, Safari su alcuni sistemi) restano i pulsanti "Lo sapevo" / "Non lo sapevo".
+
+**D. Interferenza tra le lingue che studi**
+- Nuova categoria dell'Error Bank: **"Confusione tra lingue"**.
+- Il rilevamento è locale e cerca:
+  - parole funzionali di un'altra lingua target (es. *aber* in una frase spagnola);
+  - parole italiane;
+  - genere trascinato da un'altra lingua (es. *la problème*);
+  - una lista di falsi amici.
+
+  È stato verificato con 0 falsi allarmi su tutte le frasi del curriculum nelle 4 lingue.
+- Se studi almeno 2 lingue, compaiono micro-esercizi contrastivi ("Quale è spagnolo?") costruiti da *Confronta lingue*.
+
+**E. Certificazioni** (`#/exams`, motore `js/engine/exams.js`, contenuti `js/content/exams-<lingua>.js`)
+- **Esami coperti**:
+
+  | Lingua | Esami |
+  |---|---|
+  | Inglese | IELTS Academic, IELTS General Training, Cambridge B2 First / C1 Advanced / C2 Proficiency, TOEFL iBT, OET (Medicine) |
+  | Spagnolo | DELE, SIELE |
+  | Tedesco | Goethe-Zertifikat, telc Deutsch B2·C1 Medizin, telc Deutsch B1·B2 Pflege, TestDaF, Fachsprachprüfung |
+  | Francese | DELF, DALF, TCF, TEF |
+
+  Per la Fachsprachprüfung è indicato chiaramente che **il formato varia da Land a Land**.
+- **Profilo d'esame**:
+  - livelli;
+  - prove con durata e formato;
+  - punteggio e soglia;
+  - trappole tipiche per chi parla italiano;
+  - link al sito ufficiale, con l'invito a verificare;
+  - data dell'ultima revisione (2026-10).
+- **Contenuti**: compiti **originali**, scritti per l'app nel formato pubblicato. Nessuna prova ufficiale
+  copiata, nessuna affiliazione con gli enti. C'è almeno un compito per ogni prova di ogni esame al livello
+  più richiesto: 92 compiti, con testi, audio (TTS), domande e risposte modello. Un test automatico
+  verifica che ogni prova sia coperta.
+- **Prima si insegna, poi si testa**. Ogni tipo di compito segue questi passi:
+  1. lezione di strategia + lingua utile (con "aggiungi al mio studio");
+  2. pratica controllata (completare la risposta modello);
+  3. compito guidato;
+  4. compito a tempo in condizioni d'esame.
+
+  Prima di una simulazione, se ci sono tipi di compito non ancora imparati, l'app lo segnala.
+- **Valutazione**:
+  - le prove oggettive sono corrette automaticamente;
+  - scrittura e parlato sono valutati sui criteri pubblici di ogni esame (es. IELTS Task Achievement /
+    Coherence / Lexical Resource / Grammar; DELE adecuación / coherencia / corrección / alcance;
+    Goethe Erfüllung / Kohärenz / Wortschatz / Strukturen; griglia DELF);
+  - la stima viene convertita nella scala dell'esame (band IELTS, Cambridge Scale, /100 DELF, TDN, 0–699 TCF/TEF…);
+  - il risultato è **sempre** etichettato "estimated — practice only, not an official score";
+  - la pronuncia è autovalutata.
+
+  Con l'AI configurata si aggiunge il feedback AI. I criteri sotto il 50% entrano nell'Error Bank, quindi
+  nella coda e nel planner.
+- **Simulazioni** per singola prova o complete, con il tempo reale. Storico dei tentativi per prova e per criterio.
+- **Obiettivo d'esame** (esame + livello + data):
+  - prontezza per prova;
+  - prove a impatto più alto;
+  - criteri più deboli.
+
+  Nel planner la quota di pratica d'esame cresce avvicinandosi alla data (15% → 22% → 35% → 50% negli
+  ultimi 14 giorni), sempre alternata al resto e mai come arretrato.
+- **Consiglio sull'esame** in base a obiettivo, settore e paese, sempre con l'invito a verificare cosa
+  accetta l'ente o l'università.
+
+**F. Ricalibrazione mensile e can-do**
+- Ogni 30 giorni ti viene proposta una mini-verifica facoltativa (~10 domande, 8–10 minuti) su
+  grammatica, lessico, uso e lettura. Il nuovo dato viene mescolato a quello vecchio (65/35): nessun salto
+  per un solo test.
+- In *Progress* trovi la checklist **"I can…"** del QCER. Se la tua spunta non coincide con i
+  risultati, compare un messaggio gentile ("i tuoi risultati suggeriscono che sai già…").
+
+**G. Ponte verso le persone reali**
+- **Report settimanale** (`#/report`): da stampare o salvare come PDF (dal browser), oppure da copiare.
+  Non viene mai inviato automaticamente.
+- **Preparazione alla conversazione** (3 min): frasi utili. **Dopo** (1 min): "cosa mi è mancato?". Le
+  cose che ti sono mancate entrano nella coda.
+
+**H. Promemoria leggeri**
+- **Esportazione .ics** della settimana (Calendar → "Export week (.ics)"). Funziona con qualsiasi app
+  di calendario e non richiede server: è l'opzione predefinita.
+- **Notifiche push web: NON implementate**. Per funzionare servirebbero:
+  - una Supabase Edge Function con una libreria web-push;
+  - chiavi VAPID salvate come *secret* del progetto (mai nel frontend);
+  - una tabella `push_subscriptions` con RLS;
+  - una pianificazione (pg_cron + pg_net);
+  - su iPhone, l'app installata come PWA (iOS 16.4+).
+
+  Sarebbe fattibile nel piano gratuito, ma qui non si può verificare end-to-end. Per non dichiarare una
+  funzione non provata, ho scelto di non includerla: il file .ics copre i promemoria senza server.
+
+**Database**: riesegui `supabase-schema.sql` (idempotente, non cancella niente).
+- Aggiunge la tabella **`exam_attempts`**:
+  - un tentativo per riga, con esame, prova, modalità, stima e criteri;
+  - RLS: ogni utente vede e modifica solo le proprie righe;
+  - trigger `updated_at`;
+  - indice.
+- Gli altri dati nuovi (diario dell'input, parole raccolte, obiettivo d'esame, progresso per tipo di
+  compito, can-do, ricalibrazione, coppie minime) stanno in `language_profiles.data`.
+
+Verifiche eseguite su PostgreSQL 16:
+- installazione da zero, rieseguita due volte;
+- aggiornamento dallo schema precedente;
+- inserimento delle righe generate dal mapper;
+- RLS tra due utenti: B vede 0 righe di A, non può scrivere righe a nome di A, `anon` non ha accesso.
+
+### Checklist dell'estensione
+- ✅ Copertura lessicale e fasce · ✅ testi consigliati 95–98% · ✅ sentence mining · ✅ diario dell'input
+- ✅ Dettato con diff → Error Bank · ✅ shadowing · ✅ coppie minime (ascolto + registrazione)
+- ✅ Ripasso audio a mani libere (predefinito in Tragitto) · ✅ interferenza tra lingue + esercizi contrastivi
+- ✅ Certificazioni: 16 profili d'esame, 92 compiti originali, insegnare → controllato → guidato → a tempo,
+  simulazioni, obiettivo con prontezza, planner, consigli · ✅ tabella `exam_attempts` con RLS
+- ✅ Ricalibrazione mensile · ✅ can-do QCER · ✅ report settimanale · ✅ preparazione conversazione · ✅ .ics
+- ✅ Test:
+  - `content.test.js`: oltre 7.600 controlli, inclusi ogni prova coperta, risposte valide, modelli che
+    rispettano il numero di parole e nessun falso positivo dei controlli di scrittura sui modelli;
+  - `engine.test.js`: 113 controlli;
+  - roundtrip del mapper con `exam_attempts`;
+  - E2E nel browser in 4 lingue (anche mobile, senza errori JS);
+  - PostgreSQL.
+- ❌ Notifiche push web: non implementate (vedi sopra).
+- ⚠️ Limiti:
+  - Le stime d'esame sono indicative: le prove oggettive sono corrette esattamente, mentre scrittura e
+    parlato usano analisi a regole (più l'AI, se configurata). Nessun punteggio è ufficiale.
+  - Un solo set per prova. Per allenarsi a lungo su un esame servono più materiali: libri ufficiali di
+    preparazione e prove d'esempio pubblicate dagli enti.
+  - Formati e durate cambiano. Per telc Medizin/Pflege le durate delle parti sono indicate come
+    approssimative, e la Fachsprachprüfung varia da Land a Land: verifica sempre sul sito ufficiale.
+  - La pronuncia non ha un punteggio automatico dei fonemi. Riconoscimento vocale e sintesi dipendono dal
+    browser (migliori in Chrome/Edge e su Android).
+  - La copertura lessicale è una stima basata sul curriculum e sul tuo lessico, non su un dizionario completo.

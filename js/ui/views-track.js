@@ -76,7 +76,7 @@
       const label = cal.mode === 'month' ? U.parse(cal.month).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : `${U.fmtDate(start, { day: 'numeric', month: 'short' })} – ${U.fmtDate(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
       const wk = LOS.planner.generateWeeklyPlan();
       return `<div class="view wide">
-        <div class="page-head"><div><h1>Calendar</h1><p class="sub">Your work shapes your study. Heavy days get short sessions, free days deep ones — and missed days never turn into a backlog.</p></div>
+        <div class="page-head"><div><h1>Calendar</h1><p class="sub">Your work shapes your study. Heavy days get short sessions, free days deep ones — and missed days never turn into a backlog.</p></div><button class="btn sm" data-act="ics" title="Add the week's study blocks to your calendar app">${icon('download', 14)} Export week (.ics)</button>
           <div class="cluster"><button class="btn" data-act="pattern">${icon('briefcase', 15)} Work pattern</button><button class="btn" data-act="bulk">${icon('plus', 15)} Shifts / vacation</button></div></div>
         <div class="cal-head"><button class="btn icon sm" data-act="prev" aria-label="Previous">${icon('chevronLeft', 16)}</button><button class="btn sm" data-act="today">Today</button><button class="btn icon sm" data-act="next" aria-label="Next">${icon('chevronRight', 16)}</button><h2 style="font-size:18px" class="grow">${esc(label)}</h2>${ui.seg('mode', [['month', 'Month'], ['week', 'Week']], cal.mode)}</div>
         ${legend}
@@ -91,6 +91,7 @@
         prev() { if (cal.mode === 'month') cal.month = U.monthStart(U.addDays(cal.month, -1)); else cal.sel = U.addDays(cal.sel || U.today(), -7); LOS.app.refresh(); },
         next() { if (cal.mode === 'month') cal.month = U.monthStart(U.addDays(cal.month, 32)); else cal.sel = U.addDays(cal.sel || U.today(), 7); LOS.app.refresh(); },
         today() { cal.month = U.monthStart(U.today()); cal.sel = U.today(); LOS.app.refresh(); },
+        ics() { ui.download(`lingua-os-week-${U.today()}.ics`, LOS.inputUI.weekICS(), 'text/calendar'); ui.toast('Calendar file downloaded — open it to add the week to your calendar', 'download'); },
         mode(el) { cal.mode = el.dataset.v; LOS.app.refresh(); },
         day(el) { cal.sel = el.dataset.d; dayPanel(el.dataset.d); },
         pattern() { patternEditor(); },
@@ -246,12 +247,14 @@
         <div class="section"><div class="section-head"><h2>Competence gained</h2><span class="faint small">What can you do now that you couldn't before?</span></div>
           ${L.gains.length ? `<div class="list">${L.gains.slice(0, 20).map((g) => `<div class="gain">${icon('checkCircle', 18)}<div><div>${esc(g.text)}</div><div class="faint xs">${U.fmtDate(g.date)} · ${esc(U.SKILL_LABEL[g.skill] || '')} ${esc(g.level)}${g.kind === 'scenario' ? ' · professional scenario' : ''}</div></div></div>`).join('')}</div>` : `<p class="muted small">Gains appear when a skill crosses into a new level or when you complete a professional scenario well.</p>`}
           <div class="mt-16"><div class="eyebrow">At your current level you can…</div><div class="stack small mt-8" style="--gap:6px">${U.SKILLS.map((s) => { const t = LOS.skills.theta(L, s); const lv = t == null ? null : U.thetaInfo(t).label; const c = lv && LOS.shared.CANDO[s][lv]; return c ? `<div><span class="faint">${U.SKILL_LABEL[s]}:</span> ${esc(c[0])}</div>` : ''; }).join('')}</div></div></div>
+        ${LOS.inputUI.candoHTML(code())}
         <div class="section grid grid-2" style="--gap:40px">
           <div><div class="section-head"><h3>Placement tests</h3></div>${L.assessments.length ? `<div class="list">${L.assessments.slice().reverse().map((a) => `<div class="row"><span class="grow">${U.fmtDate(a.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span><span class="level">${esc(a.overall.sub)}</span><span class="faint small">${a.items} items</span></div>`).join('')}</div>` : '<p class="muted small">Estimated from self-assessment only.</p>'}</div>
-          <div><div class="section-head"><h3>Milestones</h3><span class="faint small">${L.xp} XP</span></div><div class="list">${ach.map((a) => `<div class="row" style="min-height:40px;padding:8px 0"><span class="${L.achievements.includes(a.id) ? 'ok' : 'faint'}">${icon(L.achievements.includes(a.id) ? 'checkCircle' : 'circle', 16)}</span><span class="small ${L.achievements.includes(a.id) ? '' : 'faint'}">${esc(a.label)}</span></div>`).join('')}</div></div>
+          <div><div class="section-head"><h3>Milestones</h3></div><div class="list">${ach.map((a) => `<div class="row" style="min-height:40px;padding:8px 0"><span class="${L.achievements.includes(a.id) ? 'ok' : 'faint'}">${icon(L.achievements.includes(a.id) ? 'checkCircle' : 'circle', 16)}</span><span class="small ${L.achievements.includes(a.id) ? '' : 'faint'}">${esc(a.label)}</span></div>`).join('')}</div></div>
         </div>
       </div>`;
     },
+    mount(root) { ui.delegate(root, LOS.inputUI.candoHandlers); },
   };
 
   /* ======================================================================

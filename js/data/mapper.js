@@ -27,6 +27,7 @@
     { name: 'weekly_reviews', key: ['client_id'], conflict: 'user_id,client_id' },
     { name: 'learning_tasks', key: ['language_code', 'task_key'], conflict: 'user_id,language_code,task_key' },
     { name: 'input_library', key: ['client_id'], conflict: 'user_id,client_id' },
+    { name: 'exam_attempts', key: ['client_id'], conflict: 'user_id,client_id' },
   ];
   const BY_NAME = Object.fromEntries(TABLES.map((t) => [t.name, t]));
   const keyOf = (table, row) => BY_NAME[table].key.map((k) => String(row[k])).join('|');
@@ -102,7 +103,7 @@
         listening_level: num(th.listening, 0, 6), writing_level: num(th.writing, 0, 6), speaking_level: num(th.speaking, 0, 6),
         fluency_level: lastA && lastA.sub && lastA.sub.fluency != null ? num(lastA.sub.fluency * 6, 0, 6) : null,
         onboarded: !!L.onboarded, assessed: !!L.assessed, enabled: L.enabled !== false, goals: (L.goals || []).map(String), target_date: date(L.targetDate),
-        data: omit(L, ['code', 'enabled', 'onboarded', 'assessed', 'targetLevel', 'targetDate', 'goals', 'assessments', 'grammar', 'vocab', 'custom', 'errors', 'errorCards', 'sessions', 'listening', 'writings', 'speakings', 'plans', 'reviews', 'reviewLog', 'assessDraft', 'tasks', 'library']),
+        data: omit(L, ['code', 'enabled', 'onboarded', 'assessed', 'targetLevel', 'targetDate', 'goals', 'assessments', 'grammar', 'vocab', 'custom', 'errors', 'errorCards', 'sessions', 'listening', 'writings', 'speakings', 'plans', 'reviews', 'reviewLog', 'assessDraft', 'tasks', 'library', 'examAttempts']),
       });
 
       // vocabulary: items being learned + the user's own items
@@ -164,6 +165,13 @@
       (L.library || []).forEach((x, i) => push('input_library', {
         client_id: cid(x, 'lib'), language_code: code, title: txt(x.title, 160), kind: txt(x.kind, 30), url: x.url ? url(x.url) : null, content: txt(x.text, 10000), added_on: date(x.date),
         data: Object.assign({ ord: i }, omit(x, ['id', 'title', 'kind', 'url', 'text', 'date'])),
+      }));
+
+      (L.examAttempts || []).forEach((a, i) => push('exam_attempts', {
+        client_id: cid(a, 'exa'), language_code: code, exam_id: txt(a.exam, 40) || 'unknown', paper: txt(a.paper, 40), task_id: txt(a.task, 80), task_type: txt(a.type, 60),
+        mode: ['learn', 'practice', 'timed', 'mock'].includes(a.mode) ? a.mode : null, score_pct: num(a.pct, 0, 1, 3), estimate: txt(a.est, 160),
+        criteria: (a.criteria || []).slice(0, 12).map((c) => Object.assign({ label: txt(c.label, 80), key: txt(c.key, 20), v: c.v == null ? null : num(c.v, 0, 1) }, typeof c.self === 'boolean' ? { self: c.self } : {})), attempted_on: date(a.date) || U.today(),
+        data: Object.assign({ ord: i }, omit(a, ['id', 'exam', 'paper', 'task', 'type', 'mode', 'pct', 'est', 'criteria', 'date'])),
       }));
 
       (L.writings || []).forEach((w) => push('productions', {
@@ -279,6 +287,12 @@
       lg.library = lg.library || [];
       const d = omit(r.data || {}, ['ord']);
       lg.library.push(Object.assign(d, { id: r.client_id, title: r.title || '', kind: r.kind || 'text', url: r.url || '', text: r.content || '', date: r.added_on }));
+    });
+    (rows.exam_attempts || []).slice().sort((a, b) => ((a.data || {}).ord || 0) - ((b.data || {}).ord || 0)).forEach((r) => {
+      if (!known(r.language_code)) return;
+      const lg = L(r.language_code);
+      lg.examAttempts = lg.examAttempts || [];
+      lg.examAttempts.push(Object.assign(omit(r.data || {}, ['ord']), { id: r.client_id, date: r.attempted_on, exam: r.exam_id, paper: r.paper, task: r.task_id, type: r.task_type, mode: r.mode, pct: r.score_pct == null ? 0 : +r.score_pct, est: r.estimate || '', criteria: r.criteria || [] }));
     });
     (rows.productions || []).slice().sort((a, b) => String(b.produced_on).localeCompare(String(a.produced_on)) || String(b.created_at).localeCompare(String(a.created_at))).forEach((r) => {
       if (!known(r.language_code)) return;

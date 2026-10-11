@@ -100,7 +100,7 @@ const types = (p) => p.items.map((i) => i.type);
   const plan2 = LOS.planner.setSession(code, 30, null);
   ok(plan2.items[0].status === 'done' && plan2.items.length > 1, 'changing the time keeps completed activities');
   const com = LOS.planner.setSession(code, 15, 'commute');
-  ok(!com.items.some((i) => ['writing', 'grammar'].includes(i.type)) && com.items.some((i) => i.payload && i.payload.handsFree) && com.items.some((i) => i.payload && i.payload.focus === 'commute'), 'commute mode: hands-free review, listening and shadowing — no writing');
+  ok(!com.items.some((i) => ['writing', 'grammar'].includes(i.type)) && com.items.some((i) => i.payload && i.payload.handsFree) && com.items.some((i) => ['shadow', 'pairs'].includes(i.type) || (i.payload && i.payload.focus === 'commute')), 'commute mode: hands-free audio review, listening and shadowing/minimal pairs — no writing');
   const brk = LOS.planner.setSession(code, 5, 'break');
   ok(brk.items.filter((i) => i.status === 'pending').length <= 4 && U.sum(brk.items.filter((i) => i.status === 'pending').map((i) => i.minutes)) <= 6, 'break mode: a 5-minute retrieval session');
   const deep = LOS.planner.generateDailyPlan(code, today, 60, { study: 'deep' });
@@ -174,6 +174,112 @@ const types = (p) => p.items.map((i) => i.type);
   ok(st0._source === 'ollama' || st0.reply === 'local', 'simulator turn goes through the provider');
   st.settings.ai = { provider: 'local', endpoint: '' };
   fetchMock = null;
+
+  /* ---------- input calibrated to vocabulary, mining, dictation, spoken answers ---------- */
+  {
+    const P = LOS.lang.get(code);
+    const byLevel = (l) => P.texts.filter((t) => t.l === l).map((t) => LOS.input.coverage(code, t.text).pct);
+    const lo = U.avg(byLevel('A1')), hi = U.avg(byLevel('C1').length ? byLevel('C1') : byLevel('B2'));
+    ok(lo > hi, `coverage: easier texts have higher known-word coverage (A1 ${Math.round(lo * 100)}% > C1 ${Math.round(hi * 100)}%)`);
+    ok(LOS.input.band(0.96) === 'ideal' && LOS.input.band(0.9) === 'intensive' && LOS.input.band(0.8) === 'hard', 'coverage bands: ~96% ideal · ~88% intensive · <85% too difficult');
+    const rec = LOS.input.recommend(code);
+    ok(rec.length && Math.abs(rec[0].cov.pct - 0.965) <= Math.abs(rec[rec.length - 1].cov.pct - 0.965), 'recommended texts are ranked by closeness to the 95–98% band');
+    const before = (L.custom || []).length;
+    const id = LOS.input.mine(code, { w: 'serendipitous', sentence: 'It was a serendipitous meeting.', meaning: 'fortuito' });
+    ok(LOS.input.isMined(code, id) && (L.custom || []).length === before + 1 && LOS.ped.vstage(L.vocab[id] || {}) === 0, 'sentence mining: a new word becomes a personal item at stage 0 with its sentence');
+    LOS.input.log(code, { kind: 'reading', title: 'A novel', minutes: 25, words: 3000 });
+    const ist = LOS.input.stats(code, 7);
+    ok(ist.readingMin >= 25 && ist.words >= 3000, 'extensive input log counts minutes (separately from study sessions)');
+    const d = LOS.dictation.diff(code, 'The patient was admitted yesterday.', 'the patiant was admited');
+    ok(d.tokens.some((t) => t.t === 'case') && d.errors.filter((e) => e.t === 'spelling').length === 2 && d.errors.some((e) => e.t === 'missing' && e.exp === 'yesterday') && !d.perfect, 'dictation diff: case, spelling and missing words classified');
+    const bankBefore = (L.errorBank || []).length + Object.keys(L.errors || {}).length;
+    LOS.dictation.recordDiff(code, 'The patient was admitted yesterday.', 'the patiant was admited', d);
+    ok((L.errorBank || []).length + Object.keys(L.errors || {}).length > bankBefore || (L.errorLog || []).length, 'dictation errors go to the error bank');
+    ok(LOS.dictation.diff(code, 'Ich gehe nach Hause.', 'Ich gehe nach Hause').perfect, 'dictation: identical sentence is perfect (punctuation ignored)');
+    ok(LOS.spoken.match(code, 'the hospital', 'hospital').correct && LOS.spoken.match(code, 'appointment', 'apointment').correct && !LOS.spoken.match(code, 'appointment', 'ambulance').correct, 'spoken answers: tolerant to articles and small recognition slips, but not to a different word');
+  }
+
+  /* ---------- interference between target languages ---------- */
+  {
+    const others = ['en', 'es', 'de', 'fr'];
+    ['es', 'de', 'fr'].forEach((c) => LOS.store.ensureLang(c));
+    const hits = LOS.interference.detect('es', 'Trabajo en el hospital aber no tengo tiempo.', others);
+    ok(hits.some((h) => h.match === 'aber'), 'interference: a German word inside Spanish is detected');
+    const hit2 = LOS.interference.detect('fr', 'Je travaille à l\'hôpital avec mi colega, tambien le samedi.', others);
+    ok(hit2.length >= 1, 'interference: Spanish in French is detected (tambien)');
+    let fpi = 0, total = 0;
+    others.forEach((c) => {
+      const P = LOS.lang.get(c);
+      const sents = [].concat(...P.grammar.map((t) => t.ex), P.vocab.map((v) => v.ex)).filter(Boolean);
+      sents.forEach((sn) => { total++; const h = LOS.interference.detect(c, sn, others); if (h.length) { fpi++; if (fpi <= 5) console.log('   interference false positive', c, sn, JSON.stringify(h.map((x) => x.match))); } });
+    });
+    ok(fpi === 0, `interference: no false positives on ${total} curriculum sentences in 4 languages`);
+    const ci = LOS.interference.contrastItems('es', 3, () => 0.3);
+    ok(ci.length && ci.every((x) => x.answer >= 0 && x.options.length >= 2), 'contrastive micro-exercises built from Compare (learner studies ≥2 languages)');
+  }
+
+  /* ---------- recalibration + can-do ---------- */
+  {
+    ok(LOS.recal.due(code), 'monthly recalibration is due for a learner who never did it');
+    const d = LOS.recal.start(code);
+    let it, k = 0;
+    while ((it = LOS.recal.next(d)) && k < 20) { LOS.recal.answer(d, it, it.a); k++; }
+    ok(k >= 8 && k <= 12, `recalibration: ${k} items (8–10 minutes)`);
+    const before = LOS.skills.theta(L, 'grammar');
+    const res = LOS.recal.finish(d);
+    const ch = res.changes.find((c) => c.skill === 'grammar');
+    ok(ch && ch.after >= (before || 0) && (before == null || ch.after - before < 2), 'recalibration blends the new estimate (no jumps) and moves up after correct answers');
+    ok(!LOS.recal.due(code), 'recalibration not due again for 30 days');
+    const list = LOS.cando.list(code);
+    ok(list.length >= 20, 'CEFR can-do checklist available');
+    const c2 = list.find((c) => c.l === 'C2');
+    LOS.cando.toggle(code, c2.key);
+    const dis = LOS.cando.disagreements(code);
+    ok(LOS.cando.list(code).find((c) => c.key === c2.key).ticked && (dis.length === 0 || dis.every((x) => !/wrong|error/i.test(x.text))), 'can-do: ticking works; disagreements are gentle');
+  }
+
+  /* ---------- certifications ---------- */
+  {
+    const X = LOS.exams;
+    ok(X.list('en').length === 5 && X.list('es').length === 2 && X.list('de').length === 5 && X.list('fr').length === 4, 'exam profiles registered for all four languages');
+    ['en', 'es', 'de', 'fr'].forEach((c) => X.list(c).forEach((e) => ok(e.papers.every((p) => X.tasksFor(e.id, p.id).length >= 1), `[${c}] ${e.name}: every paper has practice tasks`)));
+    const t = X.task('en-ielts-r1');
+    const all = X.scoreObjective(code, t, t.qs.map((q) => (q.o ? q.a : q.a[0])));
+    ok(all.pct === 1, 'objective task: correct answers score 100%');
+    const none = X.scoreObjective(code, t, t.qs.map(() => ''));
+    ok(none.pct === 0, 'objective task: empty answers score 0%');
+    ok(X.checkItem(code, { a: ['on the verge of closing'], t: 'kwt' }, 'On the verge of closing.').correct, 'short answers: case and final punctuation ignored');
+    const w2 = X.task('en-ielts-w2');
+    const sp = X.scoreProduction(code, 'ielts-ac', w2, w2.model);
+    ok(sp.est && /not an official score/.test(sp.est.note) && sp.criteria.length === 4 && sp.pct > 0.5, `production scoring: model essay ${Math.round(sp.pct * 100)}% · ${sp.est.label} (labelled as estimate)`);
+    const weak = X.scoreProduction(code, 'ielts-ac', w2, 'I think yes.');
+    ok(weak.pct < sp.pct && weak.criteria.find((c) => c.key === 'task').v < 0.5, 'production scoring: a 3-word answer scores far lower on task achievement');
+    ok(/not an official score/.test(X.estimate(X.exam('delf-b2'), 0.55).note) && /pass level/.test(X.estimate(X.exam('delf-b2'), 0.55).label), 'estimates use each exam\'s scale (DELF /100, pass 50)');
+    ok(X.share(code) === 0, 'no exam goal → no exam practice in the planner');
+    const soon = U.addDays(U.today(), 10);
+    X.setGoal(code, { id: 'ielts-ac', level: '7.0', date: soon });
+    ok(X.share(code) === 0.5 && X.goal(code).daysLeft === 10, 'exam goal 10 days away → half of the session is exam practice');
+    X.setGoal(code, { id: 'ielts-ac', level: '7.0', date: U.addDays(U.today(), 200) });
+    ok(X.share(code) === 0.15, 'exam goal far away → small share');
+    X.setGoal(code, { id: 'ielts-ac', level: '7.0', date: soon });
+    const nx = X.nextActivity(code, () => 0.1);
+    ok(nx && nx.mode === 'learn', 'teach before test: the first exam activity is a strategy + language lesson');
+    const p30 = LOS.planner.generateDailyPlan(code, U.today(), 30, {});
+    const exItems = p30.items.filter((i) => i.type === 'examTask');
+    ok(exItems.length >= 1 && exItems.length <= 2 && Math.abs(p30.minutes - 30) <= 2, `planner: exam goal adds ${exItems.length} exam activity(ies), interleaved, session still ${p30.minutes} min`);
+    ok(new Set(exItems.map((i) => X.task(i.payload.taskId).type)).size === exItems.length, 'planner: no duplicate exam activity in one session');
+    const errsBefore = JSON.stringify(L.errorBank || L.errors || {}).length;
+    X.record(code, { exam: 'ielts-ac', paper: 'writing', type: 'ielts-w2', task: 'en-ielts-w2', mode: 'timed', pct: weak.pct, est: weak.est.label, criteria: weak.criteria });
+    ok(X.attempts(code, 'ielts-ac', 'writing').length === 1 && X.progress(code, 'ielts-w2').step === 3, 'attempt history per paper; timed attempt marks the task type as done in exam conditions');
+    ok(JSON.stringify(L.errorBank || L.errors || {}).length > errsBefore, 'weak exam criteria enter the error bank (→ queue and planner)');
+    const rd = X.readiness(code, 'ielts-ac');
+    ok(rd.papers.length === 4 && rd.papers.find((p) => p.id === 'writing').attempts === 1 && rd.weakCriteria.length >= 1 && rd.overall >= 0 && rd.overall <= 1, 'readiness per paper with weakest criteria');
+    const de = LOS.store.ensureLang('de');
+    st.profile.domain = 'medicine';
+    const recDe = X.recommend('de');
+    ok(recDe[0] && ['telc-med', 'fsp'].includes(recDe[0].id) && /check/.test(recDe[0].verify), 'recommendation: a doctor learning German is pointed to telc Medizin / Fachsprachprüfung, with a verify note');
+    X.setGoal(code, null);
+  }
 
   /* ---------- other languages: abroad track + pathways ---------- */
   for (const c of ['es', 'de', 'fr']) {

@@ -29,6 +29,10 @@
       const rec = recurring.has('r:' + i.rule) || (i.topic && recurring.has('t:' + i.topic));
       return { wrong: i.match || i.sentence, right: i.suggestion || (sent ? sent.corrected : ''), sentence: i.sentence, corrected: sent ? sent.corrected : '', why: i.why || '', label: i.label, cat: bc, topic: i.topic || null, recurring: rec, score: (IMPACT[bc] || 2.5) + (rec ? 3 : 0) };
     });
+    if (LOS.interference && ctx.text !== false) {
+      const txt = ctx.text || (a.sentencesOut || []).map((x) => x.original).join(' ');
+      LOS.interference.detect(code, txt).forEach((h) => errs.push({ wrong: h.match, right: h.fix || '', why: h.note, label: 'Confusion between languages', cat: 'crosslang', recurring: recurring.has('l:Word from another language'), score: 4.5 }));
+    }
     // one entry per rule, highest impact first, never more than three
     const seen = new Set();
     const errors = errs.sort((x, y) => y.score - x.score).filter((e) => { const k = e.label + '|' + U.norm(e.wrong); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 3);

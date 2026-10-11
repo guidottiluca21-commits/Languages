@@ -219,7 +219,10 @@
     const pro = proPriority(code);
     const interests = (S().profile.interests || []).map((s) => s.toLowerCase());
     const rnd = opts.rnd || Math.random;
-    const cands = vocabItems(code).filter((v) => !lang.vocab[v.id]).map((v) => {
+    // items mined from texts (tapped in context) come first, chunks included
+    const mined = new Set((lang.mined || []).map((x) => x.id));
+    const pool = vocabItems(code).concat([...mined].filter((id) => !vocabItems(code).some((v) => v.id === id)).map((id) => vocabItem(code, id)).filter(Boolean));
+    const cands = pool.filter((v) => !lang.vocab[v.id]).map((v) => {
       const li = U.levelIndex(v.l);
       // CEFR + real-world usefulness: a frequent B1 chunk beats an obscure C1 word; idioms only near level
       let s = li === band + 1 ? 2.6 : li === band ? 2.8 : li === band + 2 ? 0.6 : li < band ? 1.2 : -1.5;
@@ -229,6 +232,7 @@
       if (v.d === 'medical') s += med * 3;
       if (v.d === 'professional') s += pro * 2.5;
       if (v.custom) s += 5;
+      if (mined.has(v.id)) s += 6;
       if (v.ff) s += 0.4;
       if (interests.length && interests.some((i) => (v.def + ' ' + v.ex).toLowerCase().includes(i))) s += 0.5;
       s += rnd() * 0.6;
@@ -431,6 +435,14 @@
   function pickText(code, skill = 'reading', opts = {}) {
     const p = P(code), lang = L(code);
     const idx = opts.level != null ? opts.level : targetLevelIdx(code, skill);
+    // input calibrated to the learner's vocabulary: prefer unseen texts in the 95–98% known-word band
+    if (LOS.input && opts.level == null && !opts.noCoverage) {
+      const rnd = opts.rnd || Math.random;
+      const pool = p.texts.filter((t) => Math.abs(U.levelIndex(t.l) - idx) <= 1 && (skill !== 'listening' || t.assess === 'listening' || t.kind === 'dialogue'));
+      const scored = pool.map((t) => ({ t, s: Math.abs(LOS.input.coverage(code, t.text).pct - 0.965) + (lang.seen.texts[t.id] ? 0.3 : 0) + (t.d === 'medical' ? -medicalPriority(code) * 0.05 : 0) + rnd() * 0.02 }));
+      scored.sort((a, b) => a.s - b.s);
+      if (scored.length) return scored[0].t;
+    }
     return pickBy(p.texts, idx, lang.seen.texts, medicalPriority(code), opts.rnd || Math.random);
   }
   function pickWriting(code, opts = {}) {
